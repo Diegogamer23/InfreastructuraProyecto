@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Primer despliegue de Finanzas Claras: Lambda, DynamoDB e IAM"
+
+Resources:
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: transactionId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  DemoFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-DemoFunction"
+      RetentionInDays: 7
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DemoFunctionLimitedAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !GetAtt TransactionsTable.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${DemoFunctionLogGroup.Arn}:*"
+
+  DemoFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - DemoFunctionLogGroup
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-DemoFunction"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TransactionsTable
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from decimal import Decimal
+
+          table = boto3.resource("dynamodb").Table(os.environ["TABLE_NAME"])
+
+          def handler(event, context):
+              if not isinstance(event, dict):
+                  event = {}
+
+              if event.get("action") == "save-demo":
+                  table.put_item(
+                      Item={
+                          "userId": "demo-user",
+                          "transactionId": "demo-transaction-001",
+                          "description": "Gasto de demostración",
+                          "category": "comida",
+                          "amount": Decimal("150.00")
+                      }
+                  )
+                  result = {
+                      "message": "Movimiento de demostración guardado",
+                      "table": os.environ["TABLE_NAME"]
+                  }
+              else:
+                  result = {
+                      "message": "Función lista. Usa action=save-demo para guardar un dato de prueba."
+                  }
+
+              return {
+                  "statusCode": 200,
+                  "body": json.dumps(result)
+              }
+
+Outputs:
+  TransactionsTableName:
+    Description: "Nombre de la tabla DynamoDB"
+    Value: !Ref TransactionsTable
+
+  DemoFunctionName:
+    Description: "Nombre de la función Lambda"
+    Value: !Ref DemoFunction
