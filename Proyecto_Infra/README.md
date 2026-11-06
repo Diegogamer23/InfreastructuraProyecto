@@ -121,3 +121,7 @@ No uses credenciales de AWS en el código, en el HTML ni en GitHub. El grupo IAM
 No se usa EC2 ni NAT Gateway. DynamoDB está en modo <code>PAY_PER_REQUEST</code>, Lambda usa 128 MB y el grupo de logs conserva datos siete días. Estos servicios cobran según uso y región; el nivel gratuito depende de la cuenta y de las condiciones vigentes, por lo que no se promete costo cero.
 
 No se desplegaron S3, CloudFront, Cognito, recordatorios, reportes programados ni integración bancaria. La API actual es un prototipo para un usuario ficticio; el siguiente paso para usuarios finales es integrar Cognito como emisor de JWT, obtener el identificador de usuario desde el token y alojar el dashboard en S3. No se deben usar credenciales IAM de larga duración en un navegador.
+
+
+Las capturas de consola están organizadas en vidence/capturas/ y el reporte HTML las muestra desde esa carpeta.
+

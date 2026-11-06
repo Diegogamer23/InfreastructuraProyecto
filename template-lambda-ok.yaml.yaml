@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Finanzas Claras: Lambda de movimientos y DynamoDB (paso 1, sin API Gateway)"
+
+Resources:
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: transactionId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  DemoFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-DemoFunction"
+      RetentionInDays: 7
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DemoFunctionLimitedAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                Resource: !GetAtt TransactionsTable.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${DemoFunctionLogGroup.Arn}:*"
+
+  DemoFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - DemoFunctionLogGroup
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-DemoFunction"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TransactionsTable
+      Code:
+        ZipFile: |
+          import base64
+          import json
+          import logging
+          import os
+          import uuid
+          from datetime import date, datetime, timezone
+          from decimal import Decimal, InvalidOperation
+
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          table = boto3.resource("dynamodb").Table(os.environ["TABLE_NAME"])
+          DEMO_USER_ID = "demo-user"
+
+
+          def json_default(value):
+              if isinstance(value, Decimal):
+                  return str(value)
+              raise TypeError(f"Tipo no serializable: {type(value).__name__}")
+
+
+          def response(status_code, payload):
+              return {
+                  "statusCode": status_code,
+                  "headers": {"Content-Type": "application/json; charset=utf-8"},
+                  "body": json.dumps(payload, default=json_default, ensure_ascii=False),
+              }
+
+
+          def parse_body(event):
+              raw = event.get("body")
+              if raw is None:
+                  return {}
+              if event.get("isBase64Encoded"):
+                  raw = base64.b64decode(raw).decode("utf-8")
+              payload = json.loads(raw)
+              if not isinstance(payload, dict):
+                  raise ValueError("El cuerpo debe ser un objeto JSON.")
+              return payload
+
+
+          def create_transaction(payload):
+              # Este API de prueba se limita deliberadamente a datos ficticios.
+              user_id = str(payload.get("userId", DEMO_USER_ID)).strip()
+              if user_id != DEMO_USER_ID:
+                  return response(403, {"message": "La prueba solo permite demo-user."})
+
+              try:
+                  amount = Decimal(str(payload["amount"]))
+              except (KeyError, InvalidOperation, TypeError, ValueError):
+                  return response(400, {"message": "amount debe ser un numero valido."})
+
+              if not amount.is_finite() or amount <= 0:
+                  return response(400, {"message": "amount debe ser mayor que cero."})
+
+              category = str(payload.get("category", "")).strip()
+              if not category:
+                  return response(400, {"message": "category es obligatorio."})
+
+              transaction_type = str(payload.get("type", "expense")).strip().lower()
+              if transaction_type not in ("expense", "income"):
+                  return response(400, {"message": "type debe ser expense o income."})
+
+              transaction_date = str(payload.get("date", date.today().isoformat())).strip()
+              try:
+                  date.fromisoformat(transaction_date)
+              except ValueError:
+                  return response(400, {"message": "date debe tener formato YYYY-MM-DD."})
+
+              created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+              transaction_id = f"{created_at}#{uuid.uuid4().hex}"
+              item = {
+                  "userId": user_id,
+                  "transactionId": transaction_id,
+                  "type": transaction_type,
+                  "amount": amount,
+                  "category": category[:60],
+                  "description": str(payload.get("description", "")).strip()[:200],
+                  "date": transaction_date,
+                  "createdAt": created_at,
+              }
+
+              table.put_item(Item=item)
+              logger.info("Movimiento guardado: userId=%s transactionId=%s", user_id, transaction_id)
+              return response(201, {"message": "Movimiento guardado.", "transaction": item})
+
+
+          def list_transactions(query_parameters):
+              user_id = str(query_parameters.get("userId", "")).strip()
+              if user_id != DEMO_USER_ID:
+                  return response(400, {"message": "Para esta prueba usa userId=demo-user."})
+
+              result = table.query(
+                  KeyConditionExpression=Key("userId").eq(user_id),
+                  ScanIndexForward=False,
+                  Limit=100,
+              )
+              return response(200, {"count": result["Count"], "transactions": result["Items"]})
+
+
+          def handler(event, context):
+              try:
+                  # Conserva el evento de prueba que ya usaban desde la consola Lambda.
+                  if event.get("action") == "save-demo":
+                      return create_transaction({
+                          "userId": DEMO_USER_ID,
+                          "amount": "150.00",
+                          "category": "comida",
+                          "description": "Gasto de demostracion",
+                          "type": "expense",
+                      })
+
+                  request_context = event.get("requestContext", {})
+                  http_context = request_context.get("http", {})
+                  method = http_context.get("method", "").upper()
+
+                  if method == "POST":
+                      return create_transaction(parse_body(event))
+                  if method == "GET":
+                      return list_transactions(event.get("queryStringParameters") or {})
+
+                  return response(405, {"message": "Metodo no permitido. Usa GET o POST."})
+              except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
+                  return response(400, {"message": str(error)})
+              except Exception:
+                  logger.exception("Error procesando la solicitud")
+                  return response(500, {"message": "Error interno. Revisa CloudWatch Logs."})
+
+Outputs:
+  TransactionsTableName:
+    Description: "Nombre de la tabla DynamoDB existente en la pila"
+    Value: !Ref TransactionsTable
+
+  DemoFunctionName:
+    Description: "Nombre de la funcion Lambda"
+    Value: !Ref DemoFunction
