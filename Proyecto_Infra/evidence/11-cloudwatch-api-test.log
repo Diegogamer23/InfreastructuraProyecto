@@ -1,0 +1,35 @@
+2026-11-06T00:41:45.967Z INIT_START Runtime Version: python:3.12.mainlinev2.v82	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:a8b19198a828662ade07d066a1dce047429a5869166346747ab7d57435583a29
+2026-11-06T00:41:46.369Z [INFO]	2026-11-06T00:41:46.369Z		Found credentials in environment variables.
+2026-11-06T00:41:46.479Z START RequestId: 31bec630-2dac-4c5a-84ba-13019ed38a06 Version: $LATEST
+2026-11-06T00:41:46.755Z [INFO]	2026-11-06T00:41:46.755Z	31bec630-2dac-4c5a-84ba-13019ed38a06	Movimiento guardado: userId=demo-user transactionId=2026-11-06T00:41:46.480Z#810f08deec4d442b87ec0bacc7ecacf9
+2026-11-06T00:41:46.765Z END RequestId: 31bec630-2dac-4c5a-84ba-13019ed38a06
+2026-11-06T00:41:46.765Z REPORT RequestId: 31bec630-2dac-4c5a-84ba-13019ed38a06	Duration: 284.79 ms	Billed Duration: 793 ms	Memory Size: 128 MB	Max Memory Used: 90 MB	Init Duration: 508.15 ms
+2026-11-06T00:41:47.723Z START RequestId: 96be7fcc-a94a-4144-8d63-68823ad695f1 Version: $LATEST
+2026-11-06T00:41:47.784Z END RequestId: 96be7fcc-a94a-4144-8d63-68823ad695f1
+2026-11-06T00:41:47.784Z REPORT RequestId: 96be7fcc-a94a-4144-8d63-68823ad695f1	Duration: 60.96 ms	Billed Duration: 61 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:45:57.890Z START RequestId: ba60b62a-da57-4ab4-bf36-c7927bba1cef Version: $LATEST
+2026-11-06T00:45:58.177Z [INFO]	2026-11-06T00:45:58.177Z	ba60b62a-da57-4ab4-bf36-c7927bba1cef	Movimiento guardado: userId=demo-user transactionId=2026-11-06T00:45:57.903Z#65ab45c923b644f0952f7a018ebaf1fb
+2026-11-06T00:45:58.184Z END RequestId: ba60b62a-da57-4ab4-bf36-c7927bba1cef
+2026-11-06T00:45:58.184Z REPORT RequestId: ba60b62a-da57-4ab4-bf36-c7927bba1cef	Duration: 293.54 ms	Billed Duration: 294 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:45:58.518Z START RequestId: d2c8faa5-e9fc-4df3-9783-2de066f8ff4a Version: $LATEST
+2026-11-06T00:45:58.545Z END RequestId: d2c8faa5-e9fc-4df3-9783-2de066f8ff4a
+2026-11-06T00:45:58.545Z REPORT RequestId: d2c8faa5-e9fc-4df3-9783-2de066f8ff4a	Duration: 26.80 ms	Billed Duration: 27 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:46:35.592Z START RequestId: 0cb4978a-597c-495d-9b4e-e301d314067d Version: $LATEST
+2026-11-06T00:46:35.603Z [INFO]	2026-11-06T00:46:35.603Z	0cb4978a-597c-495d-9b4e-e301d314067d	Movimiento guardado: userId=demo-user transactionId=2026-11-06T00:46:35.592Z#164ab90c14cd46d9932c47aeb324dd33
+2026-11-06T00:46:35.624Z END RequestId: 0cb4978a-597c-495d-9b4e-e301d314067d
+2026-11-06T00:46:35.624Z REPORT RequestId: 0cb4978a-597c-495d-9b4e-e301d314067d	Duration: 31.86 ms	Billed Duration: 32 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:46:35.972Z START RequestId: 13ed0b6b-6515-4c41-8796-7ba8b947a02e Version: $LATEST
+2026-11-06T00:46:36.004Z END RequestId: 13ed0b6b-6515-4c41-8796-7ba8b947a02e
+2026-11-06T00:46:36.004Z REPORT RequestId: 13ed0b6b-6515-4c41-8796-7ba8b947a02e	Duration: 31.34 ms	Billed Duration: 32 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:56:27.232Z INIT_START Runtime Version: python:3.12.mainlinev2.v82	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:a8b19198a828662ade07d066a1dce047429a5869166346747ab7d57435583a29
+2026-11-06T00:56:27.625Z [INFO]	2026-11-06T00:56:27.625Z		Found credentials in environment variables.
+2026-11-06T00:56:27.730Z START RequestId: 131205f7-00a9-4878-95e8-4f638cd21930 Version: $LATEST
+2026-11-06T00:56:28.003Z [INFO]	2026-11-06T00:56:28.003Z	131205f7-00a9-4878-95e8-4f638cd21930	Movimiento guardado: userId=demo-user transactionId=2026-11-06T00:56:27.731Z#204c398488de447190254ff8c9d91dc6
+2026-11-06T00:56:28.015Z END RequestId: 131205f7-00a9-4878-95e8-4f638cd21930
+2026-11-06T00:56:28.015Z REPORT RequestId: 131205f7-00a9-4878-95e8-4f638cd21930	Duration: 283.69 ms	Billed Duration: 779 ms	Memory Size: 128 MB	Max Memory Used: 90 MB	Init Duration: 494.96 ms
+2026-11-06T00:56:28.358Z START RequestId: 08c3de48-50fe-47ae-82d2-87f8881fd2d1 Version: $LATEST
+2026-11-06T00:56:28.360Z END RequestId: 08c3de48-50fe-47ae-82d2-87f8881fd2d1
+2026-11-06T00:56:28.360Z REPORT RequestId: 08c3de48-50fe-47ae-82d2-87f8881fd2d1	Duration: 1.59 ms	Billed Duration: 2 ms	Memory Size: 128 MB	Max Memory Used: 90 MB
+2026-11-06T00:56:28.808Z START RequestId: e7a1f0a2-916f-4e3b-b639-44df18026cda Version: $LATEST
+2026-11-06T00:56:28.854Z END RequestId: e7a1f0a2-916f-4e3b-b639-44df18026cda
+2026-11-06T00:56:28.854Z REPORT RequestId: e7a1f0a2-916f-4e3b-b639-44df18026cda	Duration: 46.22 ms	Billed Duration: 47 ms	Memory Size: 128 MB	Max Memory Used: 90 MB

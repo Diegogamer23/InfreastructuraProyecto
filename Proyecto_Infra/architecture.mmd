@@ -1,0 +1,28 @@
+flowchart LR
+    Client[Postman o cliente de prueba]
+    IAM[Grupo IAM Proyecto_Infraestructura<br/>4 integrantes]
+    API[API Gateway HTTP API<br/>GET y POST /transactions<br/>Autorización AWS_IAM SigV4]
+    Lambda[Lambda DemoFunction<br/>Python 3.12]
+    Role[LambdaExecutionRole<br/>PutItem y Query limitados a la tabla]
+    DDB[(DynamoDB TransactionsTable<br/>PK userId, SK transactionId<br/>PAY_PER_REQUEST)]
+    Logs[CloudWatch Logs<br/>retención 7 días]
+    CFN[CloudFormation<br/>Proyectoinfrainicial]
+
+    Client -->|solicitud SigV4| API
+    IAM -. permiso para invocar, heredado de AdministratorAccess .-> API
+    API -->|Lambda permission| Lambda
+    Lambda -. asume .-> Role
+    Role -->|PutItem y Query| DDB
+    Lambda -->|logs de ejecución| Logs
+    CFN -. administra .-> API
+    CFN -. administra .-> Lambda
+    CFN -. administra .-> DDB
+    CFN -. administra .-> Role
+    CFN -. administra .-> Logs
+
+    subgraph Siguiente fase no desplegada
+      S3[Dashboard estático en S3]
+      Cognito[Amazon Cognito]
+      S3 -. interfaz .-> API
+      Cognito -. futuro JWT authorizer .-> API
+    end

@@ -1,0 +1,37 @@
+{
+  "testedAtUtc": "2026-11-06T00:56:26Z",
+  "region": "us-east-1",
+  "flow": "Cliente autenticado con IAM -> API Gateway HTTP API -> Lambda -> DynamoDB",
+  "endpoint": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com",
+  "checks": [
+    {
+      "name": "GET sin firma IAM es rechazado",
+      "statusCode": 403,
+      "passed": true
+    },
+    {
+      "name": "POST firmado crea movimiento",
+      "statusCode": 201,
+      "passed": true,
+      "transactionId": "2026-11-06T00:56:27.731Z#204c398488de447190254ff8c9d91dc6"
+    },
+    {
+      "name": "POST firmado valida monto no positivo",
+      "statusCode": 400,
+      "passed": true
+    },
+    {
+      "name": "GET firmado recupera movimiento creado",
+      "statusCode": 200,
+      "passed": true,
+      "returnedCount": 6,
+      "createdTransactionFound": true
+    }
+  ],
+  "allPassed": true,
+  "responseMessages": {
+    "unsignedGet": "Forbidden",
+    "post": "Movimiento guardado.",
+    "invalidPost": "amount debe ser mayor que cero."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "capturedAtUtc": "2026-11-06T00:57:09Z",
+  "region": "us-east-1",
+  "stack": "Proyectoinfrainicial",
+  "stackStatus": "UPDATE_COMPLETE",
+  "apiEndpoint": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com",
+  "routes": [
+    {
+      "routeKey": "GET /transactions",
+      "authorizationType": "AWS_IAM"
+    },
+    {
+      "routeKey": "POST /transactions",
+      "authorizationType": "AWS_IAM"
+    }
+  ],
+  "lambdaFunction": "Proyectoinfrainicial-DemoFunction",
+  "dynamoDbTable": "Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141",
+  "demoItemsObservedByScanLimit100": 6,
+  "lambdaMetricsLastHour": {
+    "InvocationsSum": 8.0,
+    "ErrorsSum": 0.0,
+    "ThrottlesSum": 0.0,
+    "DurationAverage": 132.4,
+    "DurationMaximum": 293.54
+  }
+}

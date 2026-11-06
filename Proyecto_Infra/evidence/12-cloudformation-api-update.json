@@ -1,0 +1,166 @@
+{
+  "capturedAtUtc": "2026-11-06T00:57:09Z",
+  "stackStatus": "UPDATE_COMPLETE",
+  "description": "Finanzas Claras: API HTTP con Lambda y DynamoDB (prototipo de demostracion)",
+  "outputs": {
+    "DemoFunctionName": "Proyectoinfrainicial-DemoFunction",
+    "ListTransactionsUrl": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com/transactions?userId=demo-user",
+    "TransactionsTableName": "Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141",
+    "TransactionsApiEndpoint": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com",
+    "CreateTransactionUrl": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com/transactions"
+  },
+  "resources": [
+    {
+      "logicalId": "ApiInvokeLambdaPermission",
+      "type": "AWS::Lambda::Permission",
+      "physicalId": "Proyectoinfrainicial-ApiInvokeLambdaPermission-FW8qOu09ZcfF",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "CreateTransactionRoute",
+      "type": "AWS::ApiGatewayV2::Route",
+      "physicalId": "981pzl0",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "DemoFunction",
+      "type": "AWS::Lambda::Function",
+      "physicalId": "Proyectoinfrainicial-DemoFunction",
+      "status": "UPDATE_COMPLETE"
+    },
+    {
+      "logicalId": "DemoFunctionLogGroup",
+      "type": "AWS::Logs::LogGroup",
+      "physicalId": "/aws/lambda/Proyectoinfrainicial-DemoFunction",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "LambdaExecutionRole",
+      "type": "AWS::IAM::Role",
+      "physicalId": "Proyectoinfrainicial-LambdaExecutionRole-CcBxVV58f3CD",
+      "status": "UPDATE_COMPLETE"
+    },
+    {
+      "logicalId": "ListTransactionsRoute",
+      "type": "AWS::ApiGatewayV2::Route",
+      "physicalId": "1zze4vh",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "TransactionsApiStage",
+      "type": "AWS::ApiGatewayV2::Stage",
+      "physicalId": "$default",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "TransactionsHttpApi",
+      "type": "AWS::ApiGatewayV2::Api",
+      "physicalId": "3wsywaa6oh",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "TransactionsIntegration",
+      "type": "AWS::ApiGatewayV2::Integration",
+      "physicalId": "3ydp3wf",
+      "status": "CREATE_COMPLETE"
+    },
+    {
+      "logicalId": "TransactionsTable",
+      "type": "AWS::DynamoDB::Table",
+      "physicalId": "Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141",
+      "status": "CREATE_COMPLETE"
+    }
+  ],
+  "recentEvents": [
+    {
+      "logicalId": "Proyectoinfrainicial",
+      "resourceType": "AWS::CloudFormation::Stack",
+      "status": "UPDATE_COMPLETE",
+      "timestamp": "2026-11-06T00:41:05.316000+00:00"
+    },
+    {
+      "logicalId": "Proyectoinfrainicial",
+      "resourceType": "AWS::CloudFormation::Stack",
+      "status": "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:41:04.639000+00:00"
+    },
+    {
+      "logicalId": "TransactionsApiStage",
+      "resourceType": "AWS::ApiGatewayV2::Stage",
+      "status": "CREATE_COMPLETE",
+      "timestamp": "2026-11-06T00:41:03.357000+00:00"
+    },
+    {
+      "logicalId": "TransactionsApiStage",
+      "resourceType": "AWS::ApiGatewayV2::Stage",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:41:02.851000+00:00"
+    },
+    {
+      "logicalId": "TransactionsApiStage",
+      "resourceType": "AWS::ApiGatewayV2::Stage",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:41:01.755000+00:00"
+    },
+    {
+      "logicalId": "ListTransactionsRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_COMPLETE",
+      "timestamp": "2026-11-06T00:41:01.353000+00:00"
+    },
+    {
+      "logicalId": "CreateTransactionRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_COMPLETE",
+      "timestamp": "2026-11-06T00:41:01.240000+00:00"
+    },
+    {
+      "logicalId": "ListTransactionsRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:41:00.799000+00:00"
+    },
+    {
+      "logicalId": "CreateTransactionRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:41:00.664000+00:00"
+    },
+    {
+      "logicalId": "ListTransactionsRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:40:59.918000+00:00"
+    },
+    {
+      "logicalId": "CreateTransactionRoute",
+      "resourceType": "AWS::ApiGatewayV2::Route",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:40:59.870000+00:00"
+    },
+    {
+      "logicalId": "TransactionsIntegration",
+      "resourceType": "AWS::ApiGatewayV2::Integration",
+      "status": "CREATE_COMPLETE",
+      "timestamp": "2026-11-06T00:40:59.452000+00:00"
+    },
+    {
+      "logicalId": "ApiInvokeLambdaPermission",
+      "resourceType": "AWS::Lambda::Permission",
+      "status": "CREATE_COMPLETE",
+      "timestamp": "2026-11-06T00:40:59.065000+00:00"
+    },
+    {
+      "logicalId": "TransactionsIntegration",
+      "resourceType": "AWS::ApiGatewayV2::Integration",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:40:58.882000+00:00"
+    },
+    {
+      "logicalId": "ApiInvokeLambdaPermission",
+      "resourceType": "AWS::Lambda::Permission",
+      "status": "CREATE_IN_PROGRESS",
+      "timestamp": "2026-11-06T00:40:58.651000+00:00"
+    }
+  ]
+}

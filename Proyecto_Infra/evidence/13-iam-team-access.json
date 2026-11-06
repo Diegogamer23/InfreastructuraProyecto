@@ -1,0 +1,61 @@
+{
+  "capturedAtUtc": "2026-11-06T00:58:40Z",
+  "group": "Proyecto_Infraestructura",
+  "groupMemberCount": 4,
+  "authorizationMethod": "IAM SigV4; IAM policy simulation for execute-api:Invoke on each route",
+  "checks": [
+    {
+      "iamUser": "Fabio_Herrera",
+      "routes": [
+        {
+          "method": "GET",
+          "decision": "allowed"
+        },
+        {
+          "method": "POST",
+          "decision": "allowed"
+        }
+      ]
+    },
+    {
+      "iamUser": "Diego_Villa",
+      "routes": [
+        {
+          "method": "GET",
+          "decision": "allowed"
+        },
+        {
+          "method": "POST",
+          "decision": "allowed"
+        }
+      ]
+    },
+    {
+      "iamUser": "Santiago_Garcia",
+      "routes": [
+        {
+          "method": "GET",
+          "decision": "allowed"
+        },
+        {
+          "method": "POST",
+          "decision": "allowed"
+        }
+      ]
+    },
+    {
+      "iamUser": "Eduardo",
+      "routes": [
+        {
+          "method": "GET",
+          "decision": "allowed"
+        },
+        {
+          "method": "POST",
+          "decision": "allowed"
+        }
+      ]
+    }
+  ],
+  "allAllowed": true
+}

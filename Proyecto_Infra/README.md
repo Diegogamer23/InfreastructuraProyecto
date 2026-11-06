@@ -1,126 +1,123 @@
-# Finanzas Claras
+# Finanzas Claras — avance funcional Serverless
 
-## Avance de infraestructura en AWS
+**Estado del despliegue:** <code>UPDATE_COMPLETE</code><br>
+**Fecha de verificación:** 5 de noviembre de 2026 (hora de Cancún)<br>
+**Región:** <code>us-east-1</code> (US East, N. Virginia)<br>
+**Pila:** <code>Proyectoinfrainicial</code><br>
 
-**Estado:** despliegue inicial realizado y en verificación con evidencias.  
-**Región:** US East (N. Virginia), `us-east-1`.  
-**Stack observado:** `Proyectoinfrainicial`.  
-**Función Lambda observada:** `Proyectoinfrainicial-DemoFunction`.  
-**Infraestructura como código:** `template.yaml`.
+## Alcance logrado en este avance
 
-## Descripción del proyecto
+Se integró y probó un flujo funcional para registrar y consultar movimientos de demostración:
 
-Finanzas Claras es una aplicación para ayudar a las personas a organizar sus finanzas. Permitirá registrar manualmente ingresos, ahorros, gastos, presupuestos, metas de ahorro y fechas de pago. También mostrará resúmenes de gastos por categoría y recordatorios.
+**Cliente firmado con IAM → API Gateway HTTP API → Lambda → DynamoDB → respuesta HTTP**
 
-En esta etapa la aplicación no se conecta con bancos ni comercios, y no realiza pagos. El objetivo de esta entrega es convertir la primera parte de la arquitectura en recursos de AWS definidos mediante CloudFormation y comprobar una función de demostración.
+La aplicación puede crear un movimiento con <code>POST /transactions</code> y consultarlo con <code>GET /transactions?userId=demo-user</code>. Las dos rutas requieren autenticación AWS IAM con Signature Version 4 (SigV4). Una solicitud sin firmar recibió <code>403</code>, como se esperaba.
 
-## Alcance de esta entrega
+Esta entrega comprueba una funcionalidad de extremo a extremo. El dashboard S3 y el inicio de sesión Cognito todavía no forman parte del despliegue actual. Se usaron datos ficticios; no ingresen información financiera real.
 
-El archivo `template.yaml` define la infraestructura inicial:
+## Arquitectura desplegada
 
-- Una tabla de Amazon DynamoDB para almacenar movimientos.
-- Una función AWS Lambda con código de demostración en Python.
-- Un rol IAM para los permisos de ejecución de Lambda.
-- Un grupo de Amazon CloudWatch Logs para los registros de la función.
-
-La función de demostración guarda un movimiento ficticio en DynamoDB cuando recibe el evento `{"action":"save-demo"}`.
-
-## Arquitectura
-
-Las flechas sólidas representan los recursos de la primera entrega. Las líneas punteadas son servicios planeados para una siguiente etapa y todavía no forman parte del despliegue inicial.
-
-```mermaid
+~~~mermaid
 flowchart LR
-    Equipo[Integrantes del equipo] --> UsuariosIAM[Usuarios IAM]
-    UsuariosIAM --> CFN[AWS CloudFormation]
+    Client[Postman o cliente de prueba]
+    IAM[Grupo IAM Proyecto_Infraestructura<br/>4 integrantes]
+    API[API Gateway HTTP API<br/>GET y POST /transactions<br/>Autorización AWS_IAM SigV4]
+    Lambda[Lambda DemoFunction<br/>Python 3.12]
+    Role[LambdaExecutionRole<br/>PutItem y Query limitados a la tabla]
+    DDB[(DynamoDB TransactionsTable<br/>PK userId, SK transactionId<br/>PAY_PER_REQUEST)]
+    Logs[CloudWatch Logs<br/>retención 7 días]
+    CFN[CloudFormation<br/>Proyectoinfrainicial]
 
-    CFN -. crea .-> Lambda[AWS Lambda<br/>Python 3.12]
-    CFN -. crea .-> Rol[Rol de ejecución IAM]
-    CFN -. crea .-> DDB[(Amazon DynamoDB)]
-    CFN -. crea .-> Logs[CloudWatch Logs]
+    Client -->|solicitud SigV4| API
+    IAM -. permiso para invocar, heredado de AdministratorAccess .-> API
+    API -->|Lambda permission| Lambda
+    Lambda -. asume .-> Role
+    Role -->|PutItem y Query| DDB
+    Lambda -->|logs de ejecución| Logs
+    CFN -. administra .-> API
+    CFN -. administra .-> Lambda
+    CFN -. administra .-> DDB
+    CFN -. administra .-> Role
+    CFN -. administra .-> Logs
 
-    Lambda -. asume el rol .-> Rol
-    Rol -- permite dynamodb:PutItem --> DDB
-    Lambda -- escribe registros --> Logs
+    subgraph Siguiente fase no desplegada
+      S3[Dashboard estático en S3]
+      Cognito[Amazon Cognito]
+      S3 -. interfaz .-> API
+      Cognito -. futuro JWT authorizer .-> API
+    end
+~~~
 
-    Usuario[Usuario de la aplicación] -. etapa futura .-> CF[Amazon CloudFront]
-    CF --> S3[Amazon S3<br/>sitio web]
-    Usuario -. inicia sesión .-> Cognito[Amazon Cognito]
-    Cognito -. token de acceso .-> API[Amazon API Gateway]
-    API -. etapa futura .-> AppLambda[Lambdas de la aplicación]
-    AppLambda --> DDB
+El archivo fuente del diagrama está en <code>architecture.mmd</code>.
 
-    Scheduler[EventBridge Scheduler] -. recordatorios futuros .-> ReminderLambda[Lambda de recordatorios]
-    ReminderLambda -. correo opcional .-> SES[Amazon SES]
-```
+## Componentes y relaciones
 
-## Componentes AWS: función, configuración y relaciones
+| Servicio / recurso | Función y configuración actual | Relación |
+|---|---|---|
+| AWS CloudFormation | Mantiene la infraestructura como código en <code>template.yaml</code>. La pila está en <code>UPDATE_COMPLETE</code>. | Administra la tabla, la Lambda, el rol, los logs y la API. |
+| API Gateway HTTP API | Endpoint <code>https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com</code>. Tiene <code>POST /transactions</code> y <code>GET /transactions</code>; ambas rutas usan <code>AWS_IAM</code>. | Valida SigV4 y solo entonces invoca Lambda. |
+| AWS Lambda | <code>Proyectoinfrainicial-DemoFunction</code>, Python 3.12, memoria 128 MB, timeout 10 s. Maneja las dos rutas. | Usa la variable de entorno <code>TABLE_NAME</code>, escribe y consulta DynamoDB. |
+| Amazon DynamoDB | Tabla bajo demanda, cifrado en reposo, clave compuesta <code>userId</code> y <code>transactionId</code>. La consulta de prueba devolvió 6 movimientos de <code>demo-user</code>. | Lambda escribe con <code>PutItem</code> y consulta por <code>userId</code> con <code>Query</code>. |
+| AWS IAM | El grupo <code>Proyecto_Infraestructura</code> tiene cuatro integrantes y la política existente <code>AdministratorAccess</code>. El rol de ejecución de Lambda tiene permisos de datos limitados a la tabla. | Los integrantes firman las llamadas con SigV4; Lambda asume su propio rol al trabajar con DynamoDB y CloudWatch. |
+| Amazon CloudWatch Logs | Grupo <code>/aws/lambda/Proyectoinfrainicial-DemoFunction</code>, retención de 7 días. | Recibe logs de inicio, fin y errores de Lambda. |
 
-| Componente | Función | Configuración en esta entrega | Relación |
+### Modelo de datos
+
+La tabla requiere estas claves en cada elemento:
+
+- <code>userId</code> — clave de partición, de tipo cadena.
+- <code>transactionId</code> — clave de ordenamiento, de tipo cadena y única por movimiento.
+
+El movimiento agrega <code>amount</code> (número decimal), <code>type</code>, <code>category</code>, <code>description</code>, <code>date</code> y <code>createdAt</code>. La Lambda usa una fecha UTC y un UUID para que cada movimiento tenga una clave distinta.
+
+### Rutas de la API
+
+| Método y ruta | Autenticación | Resultado comprobado |
+|---|---|---|
+| <code>POST /transactions</code> | IAM SigV4 | <code>201 Created</code>; guarda el movimiento de demostración. |
+| <code>GET /transactions?userId=demo-user</code> | IAM SigV4 | <code>200 OK</code>; devuelve los movimientos del usuario de demostración. |
+
+Para llamar desde Postman, selecciona autenticación **AWS Signature**, región <code>us-east-1</code>, servicio <code>execute-api</code> y usa credenciales locales de IAM. No guardes claves en este repositorio. Las llamadas desde una identidad sin firma se rechazan con <code>403</code>.
+
+## Evidencia de pruebas y métricas
+
+La validación en AWS confirmó:
+
+- <code>POST</code> firmado por IAM: **201**.
+- <code>GET</code> firmado por IAM: **200**, y la respuesta incluyó el movimiento creado.
+- <code>GET</code> sin firma: **403**, acceso no autorizado rechazado.
+- Elementos consultados para <code>demo-user</code>: **6**.
+- En la última hora observada: **8 invocaciones Lambda, 0 errores y 0 throttles**.
+- Duración Lambda promedio observada: **132.4 ms**; máxima: **293.54 ms**.
+- Un POST con monto negativo recibió **400** y no se escribió en DynamoDB.
+- CloudWatch Logs devolvió **35 eventos** en la ventana consultada.
+- La simulación de políticas permitió GET y POST a los cuatro miembros del grupo IAM; las llamadas firmadas se ejecutaron con el perfil Diego_Villa.
+
+La evidencia JSON de la simulación de acceso IAM está en <code>evidence/13-iam-team-access.json</code>. Los resultados API, métricas, logs y estado de CloudFormation también se guardan en <code>evidence/</code>. El reporte visual está en <code>evidence/reporte-end-to-end.html</code>.
+
+## Problemas técnicos detectados y resueltos
+
+| Problema | Causa encontrada | Corrección | Comprobación |
 |---|---|---|---|
-| **AWS CloudFormation** | Crea y administra los recursos descritos como código. | Lee la plantilla `template.yaml` y administra los recursos dentro de un stack. | Crea la tabla, la función, el rol de ejecución y el grupo de logs. |
-| **AWS Lambda** | Ejecuta la lógica de demostración para guardar un movimiento de prueba. | Python 3.12, memoria de 128 MB y timeout de 10 segundos. | Asume el rol IAM, obtiene el nombre de la tabla desde una variable de entorno y escribe el movimiento en DynamoDB. |
-| **Amazon DynamoDB** | Guarda los movimientos financieros registrados por la aplicación. | Tabla en modo bajo demanda (`PAY_PER_REQUEST`) y cifrado habilitado. Usa `userId` como clave de partición y `transactionId` como clave de ordenamiento. | Lambda inserta el elemento de demostración mediante `dynamodb:PutItem`. |
-| **AWS IAM** | Controla qué acciones puede realizar la función. | El rol de ejecución confía en Lambda. La política permite `dynamodb:PutItem` en la tabla del proyecto y escribir registros en CloudWatch Logs. | Lambda asume el rol durante la ejecución; no se guardan claves de acceso en el código. |
-| **Amazon CloudWatch Logs** | Conserva los registros de ejecución y errores de Lambda. | Grupo de logs asociado a la función, con retención de siete días. | Lambda envía los registros a CloudWatch para su consulta. |
+| Una nueva escritura podía reemplazar un movimiento anterior. | La primera Lambda usaba siempre <code>demo-transaction-001</code>. | Se genera <code>transactionId</code> con fecha UTC y UUID. | DynamoDB conserva el registro anterior y muestra movimientos nuevos con IDs distintos. |
+| La consulta <code>GET</code> no tenía permiso suficiente. | El rol inicial solo permitía <code>dynamodb:PutItem</code>. | Se agregó <code>dynamodb:Query</code> limitado al ARN de la tabla del stack. | <code>GET</code> firmado devuelve <code>200</code> y los movimientos esperados. |
+| El clon del repositorio tenía una plantilla con rutas públicas, distinta de la pila activa. | <code>AuthorizationType: NONE</code> no coincide con el despliegue AWS_IAM y podía abrir las rutas en otro despliegue. | Se alineó la plantilla del repositorio con la pila activa; ambas rutas usan <code>AuthorizationType: AWS_IAM</code>. | GET sin firma recibió <code>403</code>; las rutas firmadas funcionaron. |
 
-Los usuarios IAM del equipo permiten trabajar en la cuenta de AWS. Son distintos de Cognito, que se planea usar para las cuentas de los usuarios finales de la aplicación.
+La IA se utilizó para revisar el código y la política IAM, identificar las causas, proponer las correcciones y preparar casos de prueba. Las verificaciones se realizaron contra los recursos desplegados en AWS.
 
-## Prueba de demostración
+## Despliegue y seguridad
 
-El evento usado para probar la función es:
+El archivo <code>template.yaml</code> es la fuente IaC actual. Para actualizar recursos existentes:
 
-```json
-{
-  "action": "save-demo"
-}
-```
+1. En CloudFormation, abre <code>Proyectoinfrainicial</code>.
+2. Crea un change set usando <strong>Replace existing template</strong> y carga <code>template.yaml</code>.
+3. Revisa primero los recursos y la columna de reemplazo. La tabla DynamoDB no debe marcarse para reemplazo.
+4. Ejecuta el change set y espera <code>UPDATE_COMPLETE</code>.
 
-La función guarda un elemento ficticio con estos datos:
+No uses credenciales de AWS en el código, en el HTML ni en GitHub. El grupo IAM actual tiene permisos administrativos amplios porque así fue configurado para el equipo; es suficiente para la práctica, pero no es un modelo de mínimo privilegio para producción.
 
-- Usuario: `demo-user`
-- Identificador del movimiento: `demo-transaction-001`
-- Descripción: `Gasto de demostración`
-- Categoría: `comida`
-- Importe: `150.00`
+## Costos y límites de este avance
 
-La prueba se ejecuta desde la consola de Lambda. Esta primera entrega no publica un endpoint de API ni recibe movimientos de usuarios reales.
+No se usa EC2 ni NAT Gateway. DynamoDB está en modo <code>PAY_PER_REQUEST</code>, Lambda usa 128 MB y el grupo de logs conserva datos siete días. Estos servicios cobran según uso y región; el nivel gratuito depende de la cuenta y de las condiciones vigentes, por lo que no se promete costo cero.
 
-## Despliegue
-
-1. Iniciar sesión en la consola de AWS con el usuario IAM asignado.
-2. Seleccionar la región `us-east-1`.
-3. Abrir CloudFormation y crear un stack nuevo usando `template.yaml`.
-4. Reconocer la creación de recursos IAM cuando CloudFormation lo solicite durante la revisión.
-5. Revisar el estado y los eventos del stack.
-6. Abrir la función Lambda y ejecutar el evento de demostración.
-7. Revisar el elemento en la tabla de DynamoDB y los registros en CloudWatch Logs.
-
-El estado final del stack y los nombres físicos de la tabla y del rol se pueden consultar en CloudFormation, en las pestañas **Resources** y **Outputs**.
-
-## Evidencias
-
-Las capturas del despliegue se guardan en `evidence/`. Usa estos nombres o actualízalos para que coincidan con los archivos reales:
-
-| Archivo | Evidencia |
-|---|---|
-| `evidence/01-cloudformation-stack.png` | Nombre del stack y estado final. |
-| `evidence/02-cloudformation-resources.png` | Recursos creados por CloudFormation. |
-| `evidence/03-cloudformation-outputs.png` | Outputs con los nombres de la función y la tabla. |
-| `evidence/04-lambda-test.png` | Resultado exitoso de la prueba de Lambda. |
-| `evidence/05-dynamodb-item.png` | Movimiento de demostración guardado en DynamoDB. |
-| `evidence/06-iam-role-permissions.png` | Permisos del rol de ejecución asociados a Lambda. |
-| `evidence/07-lambda-metrics.png` | Métricas de Lambda después de invocarla. |
-| `evidence/08-cloudwatch-logs.png` | Registros de la ejecución de Lambda. |
-
-## Servicios planeados para una siguiente etapa
-
-Estos servicios pertenecen a la arquitectura futura. No se consideran desplegados hasta que se agreguen a `template.yaml` y se comprueben en AWS:
-
-- **Amazon S3 y CloudFront:** alojar y distribuir la interfaz web.
-- **Amazon Cognito:** autenticar a los usuarios finales.
-- **Amazon API Gateway:** recibir solicitudes de la aplicación y dirigirlas al backend.
-- **Más funciones Lambda:** gestionar perfil, movimientos, presupuestos, metas, tarjetas y reportes.
-- **EventBridge Scheduler:** iniciar revisiones programadas de pagos próximos.
-- **Amazon SES:** enviar recordatorios por correo, si el equipo implementa ese canal.
-
+No se desplegaron S3, CloudFront, Cognito, recordatorios, reportes programados ni integración bancaria. La API actual es un prototipo para un usuario ficticio; el siguiente paso para usuarios finales es integrar Cognito como emisor de JWT, obtener el identificador de usuario desde el token y alojar el dashboard en S3. No se deben usar credenciales IAM de larga duración en un navegador.

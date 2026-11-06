@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finanzas Claras — prueba de extremo a extremo</title>
+<style>
+:root{--navy:#122b49;--blue:#1473e6;--green:#14804a;--pale:#eef6ff;--ink:#243447;--muted:#627184;--line:#d9e2ec;--bg:#f5f8fc;--amber:#a05a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",Arial,sans-serif}
+main{max-width:1120px;margin:32px auto;padding:0 22px 50px}
+header{background:linear-gradient(125deg,#122b49,#175da8);color:white;padding:32px;border-radius:18px;box-shadow:0 12px 28px #122b4920}
+h1{margin:0 0 8px;font-size:clamp(28px,4vw,42px)}
+header p{margin:5px 0;color:#e7f0fa}
+.status{display:inline-block;background:#dff5e8;color:#0d683b;padding:7px 13px;border-radius:999px;font-weight:700}
+section{background:#fff;margin-top:20px;padding:24px;border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 16px #122b4908}
+h2{margin:0 0 14px;color:var(--navy);font-size:24px}
+h3{color:var(--navy);margin:22px 0 8px}
+.small{color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.card strong{display:block;font-size:25px;color:var(--blue)}
+.card span{color:var(--muted);font-size:14px}
+.flow{display:flex;align-items:stretch;justify-content:center;gap:8px;flex-wrap:wrap;margin:18px 0}
+.node{background:var(--pale);border:1px solid #bad7fa;border-radius:12px;padding:15px;min-width:150px;text-align:center;font-weight:650;color:#153e6e}
+.arrow{display:flex;align-items:center;font-size:26px;color:var(--blue)}
+.subflow{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.subflow .node{background:#f7f8fa;border-color:#d3dce6;color:#394b60}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#f3f7fb;color:var(--navy)}
+.pass{color:var(--green);font-weight:700}
+.warn{color:var(--amber);font-weight:700}
+code{background:#f0f4f8;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+a{color:#0c63bf}
+figure{margin:14px 0 24px}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:10px}
+figcaption{color:var(--muted);font-size:14px;margin-top:6px}
+details{margin-top:12px}
+summary{cursor:pointer;font-weight:650;color:var(--blue)}
+.callout{border-left:4px solid var(--blue);background:#f2f7fd;padding:12px 16px;border-radius:8px}
+footer{color:var(--muted);font-size:13px;text-align:center;padding:22px}
+@media(max-width:600px){main{padding:0 12px 30px}section{padding:17px}header{padding:23px}.arrow{transform:rotate(90deg)}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="status">PRUEBA E2E EXITOSA · UPDATE_COMPLETE</span>
+  <h1>Finanzas Claras</h1>
+  <p>Integración funcional de API Gateway, Lambda y DynamoDB con autorización IAM.</p>
+  <p>Región us-east-1 · Prueba del 5 de noviembre de 2026, hora de Cancún · evidencias con marcas UTC</p>
+</header>
+
+<section>
+  <h2>Resultado de la entrega</h2>
+  <p>Se desplegó una funcionalidad de extremo a extremo para crear y consultar movimientos de demostración. La API requiere solicitudes firmadas con AWS Signature Version 4 (SigV4). La llamada sin firma fue rechazada por API Gateway.</p>
+  <div class="grid">
+    <div class="card"><strong>201</strong><span>POST firmado creó un movimiento</span></div>
+    <div class="card"><strong>200</strong><span>GET firmado devolvió el movimiento</span></div>
+    <div class="card"><strong>403</strong><span>GET sin firma fue bloqueado</span></div>
+    <div class="card"><strong>6</strong><span>movimientos de prueba para demo-user</span></div>
+    <div class="card"><strong>400</strong><span>monto inválido rechazado</span></div>
+  </div>
+  <p class="small">La prueba SigV4 se ejecutó con el perfil IAM Diego_Villa. La simulación de políticas confirmó que los cuatro miembros del grupo tienen permiso de invocación GET y POST; las credenciales de los otros tres no se usaron para enviar llamadas.</p>
+</section>
+
+<section>
+  <h2>Arquitectura desplegada</h2>
+  <div class="flow" aria-label="Flujo de componentes">
+    <div class="node">Cliente de prueba<br>solicitud firmada IAM</div><div class="arrow">→</div>
+    <div class="node">API Gateway<br>HTTP API<br>rutas GET y POST</div><div class="arrow">→</div>
+    <div class="node">AWS Lambda<br>Python 3.12</div><div class="arrow">→</div>
+    <div class="node">DynamoDB<br>PAY_PER_REQUEST</div>
+  </div>
+  <div class="subflow">
+    <div class="node">IAM verifica SigV4 y permite la invocación</div>
+    <div class="node">El rol de Lambda permite PutItem y Query en la tabla</div>
+    <div class="node">CloudWatch Logs recibe los registros de Lambda</div>
+    <div class="node">CloudFormation administra los recursos</div>
+  </div>
+  <p>El endpoint base es <a href="https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com">https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com</a>. La ruta POST registra; la ruta GET consulta por el usuario de demostración.</p>
+  <details>
+    <summary>Ver fuente Mermaid</summary>
+    <p>El archivo fuente completo está en <a href="../architecture.mmd">architecture.mmd</a> y también se incluye en el README.</p>
+  </details>
+</section>
+
+<section>
+  <h2>Componentes y relaciones</h2>
+  <table>
+    <thead><tr><th>Componente</th><th>Función y configuración</th><th>Relación</th></tr></thead>
+    <tbody>
+      <tr><td>API Gateway HTTP API</td><td>POST /transactions y GET /transactions; ambas rutas protegidas con AWS_IAM.</td><td>Verifica SigV4 y llama a Lambda.</td></tr>
+      <tr><td>Lambda DemoFunction</td><td>Python 3.12, 128 MB, timeout de 10 segundos.</td><td>Recibe el evento HTTP, valida los datos y llama a DynamoDB.</td></tr>
+      <tr><td>DynamoDB TransactionsTable</td><td>Modo PAY_PER_REQUEST; claves userId y transactionId; cifrado habilitado.</td><td>Lambda usa PutItem y Query con permisos limitados a esta tabla.</td></tr>
+      <tr><td>IAM</td><td>Grupo Proyecto_Infraestructura con cuatro integrantes; política existente AdministratorAccess. El rol de Lambda es distinto del grupo de usuarios.</td><td>El grupo permite a sus miembros administrar AWS y firmar solicitudes; Lambda asume su rol para acceder a datos y logs.</td></tr>
+      <tr><td>CloudWatch Logs</td><td>Grupo /aws/lambda/Proyectoinfrainicial-DemoFunction; retención de siete días.</td><td>Conserva los eventos de ejecución de Lambda.</td></tr>
+      <tr><td>CloudFormation</td><td>Pila Proyectoinfrainicial, estado UPDATE_COMPLETE.</td><td>Administra todos los recursos definidos en template.yaml.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Pruebas y métricas</h2>
+  <table>
+    <thead><tr><th>Prueba / métrica</th><th>Resultado observado</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Solicitud GET sin firma IAM</td><td>HTTP 403</td><td class="pass">Correcto: acceso rechazado</td></tr>
+      <tr><td>POST firmado por IAM</td><td>HTTP 201; transactionId único devuelto</td><td class="pass">Correcto: movimiento creado</td></tr>
+      <tr><td>GET firmado por IAM</td><td>HTTP 200; respuesta contiene el movimiento recién creado</td><td class="pass">Correcto: persistencia verificada</td></tr>
+      <tr><td>POST con monto negativo</td><td>HTTP 400; entrada rechazada antes de guardar</td><td class="pass">Validación correcta</td></tr>
+      <tr><td>Invocaciones Lambda en la última hora observada</td><td>8 invocaciones; 0 errores; 0 throttles</td><td class="pass">Correcto</td></tr>
+      <tr><td>Duración Lambda</td><td>Promedio 132.4 ms; máximo 293.54 ms</td><td class="pass">Correcto</td></tr>
+      <tr><td>CloudWatch Logs</td><td>35 eventos en el archivo de evidencia de la ventana consultada</td><td class="pass">Registros disponibles</td></tr>
+      <tr><td>DynamoDB</td><td>6 movimientos de demostración devueltos para demo-user</td><td class="pass">Persistencia confirmada</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Las métricas de Lambda se consultaron en CloudWatch para la hora anterior a la verificación; pueden variar al abrir de nuevo la consola. Horas de CloudWatch están en UTC.</p>
+  <p><a href="09-api-e2e-results.json">Resultados de la prueba API</a> · <a href="10-cloudwatch-summary.json">Resumen de CloudWatch</a> · <a href="11-cloudwatch-api-test.log">Eventos de CloudWatch Logs</a> · <a href="12-cloudformation-api-update.json">Estado y recursos de CloudFormation</a> · <a href="13-iam-team-access.json">Acceso del grupo IAM</a></p>
+</section>
+
+<section>
+  <h2>Problemas técnicos detectados y corregidos</h2>
+  <table>
+    <thead><tr><th>Problema</th><th>Corrección</th><th>Prueba de cierre</th></tr></thead>
+    <tbody>
+      <tr><td>La Lambda original siempre escribía con transactionId demo-transaction-001; PutItem podía reemplazar el registro anterior.</td><td>Se genera una clave nueva con fecha UTC y UUID.</td><td>DynamoDB mantiene el registro anterior y devuelve varios movimientos con IDs diferentes.</td></tr>
+      <tr><td>El rol de ejecución inicial permitía PutItem, pero no Query.</td><td>Se agregó dynamodb:Query restringido a la tabla TransactionsTable.</td><td>La ruta GET firmada por IAM devolvió 200 con los elementos.</td></tr>
+      <tr><td>El clon del repositorio tenía AuthorizationType NONE, distinto de la pila AWS_IAM; un nuevo despliegue podía abrir rutas anónimas.</td><td>Se alineó el repositorio con la plantilla desplegada y se conservaron las dos rutas AWS_IAM.</td><td>GET sin firma devolvió 403; GET y POST firmados funcionaron. La simulación confirmó permiso para los cuatro usuarios.</td></tr>
+    </tbody>
+  </table>
+  <p>La IA se utilizó para revisar la plantilla y la política, identificar causas, proponer correcciones y apoyar la interpretación de las pruebas. La verificación se hizo contra AWS.</p>
+</section>
+
+<section>
+  <h2>Evidencias visuales entregadas</h2>
+  <details>
+    <summary>Ver capturas del despliegue inicial y pruebas de Lambda</summary>
+    <figure><img src="01-stack-status.png" alt="Estado inicial de la pila"><figcaption>01 — Despliegue inicial. La verificación actual de la pila está registrada en 12-cloudformation-api-update.json.</figcaption></figure>
+    <figure><img src="02-stack-resources.png" alt="Recursos iniciales de la pila"><figcaption>02 — Recursos iniciales creados por CloudFormation.</figcaption></figure>
+    <figure><img src="04-lambda-test.png" alt="Prueba de Lambda"><figcaption>04 — Prueba directa de Lambda.</figcaption></figure>
+    <figure><img src="05-dynamodb-item.png" alt="Elemento de DynamoDB"><figcaption>05 — Elementos de prueba en DynamoDB; evidencia adicional de la prueba actual en 09-api-e2e-results.json.</figcaption></figure>
+    <figure><img src="06-iam-role-permissions.png" alt="Permisos IAM"><figcaption>06 — Política inicial del rol; la política actual añade Query.</figcaption></figure>
+    <figure><img src="07-lambda-metrics.png" alt="Métricas de Lambda"><figcaption>07 — Métricas iniciales; los valores actuales están en 10-cloudwatch-summary.json.</figcaption></figure>
+    <figure><img src="08-cloudwatch-logs.png" alt="CloudWatch Logs"><figcaption>08 — Logs iniciales; eventos actuales están en 11-cloudwatch-api-test.log.</figcaption></figure>
+  </details>
+</section>
+
+<section>
+  <h2>Alcance pendiente</h2>
+  <p class="callout"><span class="warn">Este avance no es todavía el dashboard completo.</span> S3, Cognito, pantalla de inicio de sesión, reportes, categorías configurables, tarjetas, recordatorios, PATCH, DELETE e integración bancaria no están desplegados. La API está limitada a datos ficticios y a demo-user. Para usuarios finales, el siguiente paso es un JWT authorizer con Cognito y tomar el identificador de usuario desde su token; no se deben aceptar identidades de usuario desde el body como mecanismo de seguridad.</p>
+</section>
+
+<section>
+  <h2>Costos y seguridad</h2>
+  <p>No se desplegó EC2 ni NAT Gateway. API Gateway HTTP API, Lambda, DynamoDB bajo demanda y CloudWatch cobran por uso; no se garantiza costo cero. La retención de logs es siete días.</p>
+  <p>Las rutas no aceptan llamadas anónimas. Los cuatro usuarios del grupo tienen permisos administrativos amplios ya existentes; esto permite la práctica y la invocación IAM, pero no sigue mínimo privilegio. No se almacenaron claves de acceso en IaC, pruebas ni este HTML.</p>
+  <p><a href="../README.md">README actualizado</a> · <a href="../template.yaml">Plantilla CloudFormation</a> · <a href="../architecture.mmd">Fuente del diagrama</a></p>
+</section>
+<footer>Finanzas Claras · Evidencia técnica del avance de integración Serverless · Cuenta de prueba educativa</footer>
+</main>
+</body>
+</html>
