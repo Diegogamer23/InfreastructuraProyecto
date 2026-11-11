@@ -1,34 +1,51 @@
 # Backend serverless
 
-Este directorio contiene el código que ejecuta AWS Lambda. La interfaz de usuario está en `../frontend/`; la definición de los recursos AWS está en `../Proyecto_Infra/`.
+El navegador llama a API Gateway desde `frontend/src/services/api.js`. AWS Cognito firma cada solicitud con un JWT; API Gateway lo valida antes de invocar la Lambda correspondiente. Las Lambdas obtienen el `userId` del claim `sub` validado y acceden a DynamoDB con roles separados.
 
-## Movimientos
+## Dominios
 
-1. El navegador llama a `GET /transactions` o `POST /transactions` desde `frontend/src/services/api.js` y adjunta el token de Cognito.
-2. API Gateway verifica el JWT y entrega la solicitud a `DemoFunction`.
-3. `src/transactions/handler.py` obtiene el usuario autenticado, valida el movimiento y consulta o escribe en DynamoDB.
-4. Lambda devuelve JSON a API Gateway, que responde al navegador.
+### Movimientos
 
-## Presupuestos
+- Código: `src/transactions/handler.py` (fuente sincronizada dentro de `Proyecto_Infra/template.yaml`).
+- Función desplegada: `Proyectoinfrainicial-DemoFunction`, Python 3.12, handler `index.handler`.
+- API: `GET /transactions`, `POST /transactions`.
+- Tabla: `Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141`, claves `userId` y `transactionId`, modo `PAY_PER_REQUEST`.
+- IAM: `PutItem` y `Query` sobre esta tabla; permisos de CloudWatch Logs.
 
-`src/budgets/handler.py` implementa `GET /budgets?month=YYYY-MM` y `POST /budgets`. La identidad viene del JWT validado por API Gateway; el cliente no envía `userId`. Los presupuestos se guardan en `BudgetsTable`, con claves `userId` y `budgetKey` (`mes#categoría`). El POST crea o actualiza el límite para esa categoría y mes.
+### Presupuestos
 
-CloudFormation agrega `BudgetsFunction`, su rol IAM con acceso solo a `BudgetsTable`, el grupo de logs y las rutas protegidas por el mismo autorizador JWT de Cognito.
+- Código: `src/budgets/handler.py`, sincronizado con `Proyecto_Infra/template.yaml`.
+- Función: `Proyectoinfrainicial-BudgetsFunction`, Python 3.12, handler `index.handler`.
+- API: `GET /budgets?month=YYYY-MM`, `POST /budgets`.
+- Tabla: `Proyectoinfrainicial-BudgetsTable-7V3OBYTQDKGO`, claves `userId` y `budgetKey` (`mes#categoría`), modo `PAY_PER_REQUEST`.
+- IAM: `PutItem` y `Query` limitados a la tabla; permisos de logs.
+- El POST crea o actualiza el límite de una categoría para un mes. La app calcula el gasto comparando con movimientos reales.
 
-El backend usa Lambda, por eso no mantiene un servidor Express encendido ni requiere EC2. Presupuestos es el segundo dominio; tarjetas y avisos aún no tienen endpoints ni almacenamiento en AWS.
+### Tarjetas
 
-## Mantener el código y la plantilla alineados
+- Código: `src/cards/handler.py`.
+- Función: `Proyectoinfrainicial-CardsFunction`, Python 3.12, handler `lambda_function.handler`.
+- API: `GET /cards`, `POST /cards`.
+- Tabla: `Proyectoinfrainicial-CardsTable`, claves `userId` y `cardId`, modo `PAY_PER_REQUEST`.
+- IAM: `GetItem`, `PutItem` y `Query` limitados a la tabla, además de permisos de CloudWatch Logs.
+- Estos recursos se configuraron manualmente desde la consola y no están incluidos en la pila CloudFormation actual.
 
-El despliegue usa CloudFormation con `ZipFile`. Los archivos Python de esta carpeta son la fuente editable; antes de subir `Proyecto_Infra/template.yaml` a CloudFormation, sincronízalos con:
+La pantalla de tarjetas solo almacena nombre para identificarla, emisor, límite, saldo actual y días de corte/pago. No solicita número de tarjeta ni CVV. La app calcula avisos de pago en el frontend; no envía correo/SMS/push.
+
+## Sincronizar y desplegar movimientos/presupuestos
+
+Los handlers de transacciones y presupuestos son la fuente editable. Desde la raíz del repositorio:
 
 ```powershell
 node backend/scripts/sync-lambda-source.mjs --write
-```
-
-Para comprobar que no haya diferencias sin modificar archivos:
-
-```powershell
 node backend/scripts/sync-lambda-source.mjs
 ```
 
-Después de sincronizar, CloudFormation despliega la lógica Python actualizada y los recursos definidos en la plantilla. El sincronizador conserva la Lambda de movimientos y agrega la Lambda y tabla de presupuestos cuando se actualiza la pila.
+El primer comando actualiza los bloques inline de `Proyecto_Infra/template.yaml`; el segundo comprueba que estén sincronizados. Luego carga la plantilla con CloudFormation, crea un change set y revísalo antes de ejecutarlo. La plantilla actual no importa ni administra los recursos manuales de tarjetas.
+
+## Seguridad
+
+- API Gateway requiere el autorizador JWT de Cognito en las seis rutas.
+- El `userId` no se recibe del cuerpo del navegador: se obtiene de `requestContext.authorizer.jwt.claims.sub`.
+- Los roles de ejecución de Lambda deben permitir acciones solo sobre su tabla y su grupo de logs.
+- Nunca añadas credenciales IAM, tokens JWT o contraseñas al frontend o al repositorio.

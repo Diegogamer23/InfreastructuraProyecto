@@ -1,28 +1,43 @@
 flowchart LR
-    Client[Postman o cliente de prueba]
-    IAM[Grupo IAM Proyecto_Infraestructura<br/>4 integrantes]
-    API[API Gateway HTTP API<br/>GET y POST /transactions<br/>Autorización AWS_IAM SigV4]
-    Lambda[Lambda DemoFunction<br/>Python 3.12]
-    Role[LambdaExecutionRole<br/>PutItem y Query limitados a la tabla]
-    DDB[(DynamoDB TransactionsTable<br/>PK userId, SK transactionId<br/>PAY_PER_REQUEST)]
-    Logs[CloudWatch Logs<br/>retención 7 días]
-    CFN[CloudFormation<br/>Proyectoinfrainicial]
+    User[Persona usuaria]
+    CloudFront[Amazon CloudFront]
+    S3[Amazon S3<br/>Frontend React estático]
+    Frontend[React en navegador]
+    Cognito[Amazon Cognito<br/>User Pool y cliente web]
+    API[API Gateway HTTP API<br/>Autorizador JWT]
 
-    Client -->|solicitud SigV4| API
-    IAM -. permiso para invocar, heredado de AdministratorAccess .-> API
-    API -->|Lambda permission| Lambda
-    Lambda -. asume .-> Role
-    Role -->|PutItem y Query| DDB
-    Lambda -->|logs de ejecución| Logs
-    CFN -. administra .-> API
-    CFN -. administra .-> Lambda
-    CFN -. administra .-> DDB
-    CFN -. administra .-> Role
-    CFN -. administra .-> Logs
+    User --> CloudFront
+    CloudFront --> S3
+    User --> Frontend
+    Frontend -->|Registro e inicio de sesión| Cognito
+    Frontend -->|HTTPS con token Bearer| API
+    API -->|Valida token JWT| Cognito
 
-    subgraph Siguiente fase no desplegada
-      S3[Dashboard estático en S3]
-      Cognito[Amazon Cognito]
-      S3 -. interfaz .-> API
-      Cognito -. futuro JWT authorizer .-> API
-    end
+    API -->|GET/POST /transactions| Transactions[Lambda DemoFunction<br/>Python 3.12]
+    API -->|GET/POST /budgets| Budgets[Lambda BudgetsFunction<br/>Python 3.12]
+    API -->|GET/POST /cards| Cards[Lambda CardsFunction<br/>Python 3.12]
+
+    Transactions --> TransactionsRole[Rol IAM limitado]
+    Budgets --> BudgetsRole[Rol IAM limitado]
+    Cards --> CardsRole[Rol IAM limitado]
+    TransactionsRole --> TransactionsTable[(DynamoDB TransactionsTable<br/>PK userId · SK transactionId<br/>PAY_PER_REQUEST)]
+    BudgetsRole --> BudgetsTable[(DynamoDB BudgetsTable<br/>PK userId · SK budgetKey<br/>PAY_PER_REQUEST)]
+    CardsRole --> CardsTable[(DynamoDB CardsTable<br/>PK userId · SK cardId<br/>PAY_PER_REQUEST)]
+
+    Transactions --> Logs[CloudWatch Logs]
+    Budgets --> Logs
+    Cards --> Logs
+
+    Frontend -. Avisos calculados al abrir la sección .-> API
+
+    CFN[CloudFormation: Proyectoinfrainicial]
+    CFN -. Administra .-> Transactions
+    CFN -. Administra .-> Budgets
+    CFN -. Administra .-> TransactionsTable
+    CFN -. Administra .-> BudgetsTable
+    Manual[Tarjetas: recursos creados desde la consola]
+    Manual -. Recursos fuera de la pila CFN actual .-> Cards
+    Manual -. Recursos fuera de la pila CFN actual .-> CardsTable
+
+    Note[Limitación: los avisos son internos a la app;<br/>no hay envío de correo, SMS o push]
+    Frontend -.-> Note

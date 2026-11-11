@@ -1,6 +1,13 @@
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../auth/useAuth.js'
+import LoadingScreen from './LoadingScreen.jsx'
 
 export default function AuthLayout() {
+  const { user, loading } = useAuth()
+
+  if (loading) return <LoadingScreen />
+  if (user) return <Navigate to="/app/dashboard" replace />
+
   return (
     <main className="auth-layout">
       <section className="auth-story">

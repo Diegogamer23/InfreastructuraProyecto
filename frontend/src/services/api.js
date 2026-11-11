@@ -51,3 +51,15 @@ export function saveBudget(budget) {
     body: JSON.stringify(budget),
   })
 }
+
+export async function listCards() {
+  const result = await apiRequest('/cards')
+  return Array.isArray(result.cards) ? result.cards : []
+}
+
+export function saveCard(card) {
+  return apiRequest('/cards', {
+    method: 'POST',
+    body: JSON.stringify(card),
+  })
+}

@@ -1,69 +1,100 @@
 # Finanzas Claras
 
-Aplicación web para registrar ingresos y gastos, consultar un balance básico y organizar límites mensuales por categoría. La arquitectura usa servicios serverless de AWS para mantenerla sencilla y evitar servidores encendidos.
+Aplicación web serverless para que una persona registre ingresos y gastos, defina presupuestos por categoría, organice los datos de sus tarjetas y consulte avisos financieros básicos. Se usan datos ingresados manualmente; la aplicación no se conecta a bancos ni guarda números de tarjeta o CVV.
 
-## Estado del prototipo
+**Estado verificado:** 11 de noviembre de 2026 · **Región:** `us-east-1` · **Pila principal:** `Proyectoinfrainicial`
+
+## Estado funcional
 
 - Registro, confirmación e inicio de sesión con Amazon Cognito.
-- Registro y consulta de movimientos con API Gateway, Lambda y DynamoDB; el equipo comprobó el flujo desde la interfaz.
-- Módulo de presupuestos implementado en código y en la plantilla de CloudFormation; falta desplegar la actualización de la pila y probar sus endpoints en AWS.
-- Tarjetas y avisos son secciones visuales para trabajo posterior; aún no guardan información ni envían notificaciones.
+- Aplicación React publicada en S3 y distribuida mediante CloudFront.
+- Movimientos: ingresos y gastos con consulta y escritura en DynamoDB.
+- Presupuestos mensuales por categoría: consulta, creación/actualización y comparación con los gastos reales.
+- Tarjetas: almacenamiento manual del emisor, límite, saldo y días de corte/pago.
+- Avisos dentro de la aplicación para fechas de pago cercanas, presupuestos usados al 80% o más y gastos planeados próximos.
+- El panel presenta balance, movimientos recientes y gastos por categoría.
 
-## Arquitectura
+Los avisos se calculan al abrir la sección y no se envían por correo, SMS ni notificaciones push.
+
+## Arquitectura actual
 
 ```mermaid
 flowchart LR
-  U[Persona usuaria] --> FE[React en el navegador]
-  FE -->|Registro e inicio de sesión| C[Cognito]
-  FE -->|HTTPS con token JWT| API[API Gateway HTTP]
-  API -->|Verifica JWT| C
-  API -->|GET y POST /transactions| TX[Lambda de movimientos]
-  TX --> T[(DynamoDB: TransactionsTable)]
-  API -->|GET y POST /budgets| BG[Lambda de presupuestos]
-  BG --> B[(DynamoDB: BudgetsTable)]
+  U[Persona usuaria] --> CF[CloudFront]
+  CF --> S3[S3: React estático]
+  U --> FE[React en el navegador]
+  FE -->|registro e inicio de sesión| C[Cognito User Pool]
+  FE -->|HTTPS con token JWT| API[API Gateway HTTP API]
+  API -->|valida token| C
+  API -->|GET/POST /transactions| TX[Lambda DemoFunction]
+  API -->|GET/POST /budgets| BG[Lambda BudgetsFunction]
+  API -->|GET/POST /cards| CC[Lambda CardsFunction]
+  TX --> T[(DynamoDB TransactionsTable)]
+  BG --> B[(DynamoDB BudgetsTable)]
+  CC --> K[(DynamoDB CardsTable)]
   TX --> CW[CloudWatch Logs]
   BG --> CW
+  CC --> CW
+  FE -. Avisos calculados en React .-> API
+  CFN[CloudFormation] -. administra .-> TX
+  CFN -. administra .-> BG
+  CFN -. administra .-> T
+  CFN -. administra .-> B
+  MAN[Tarjetas: recursos creados manualmente] -. fuera de la pila actual .-> CC
 ```
 
-## Estructura del repositorio
+Las seis rutas de la API requieren el autorizador JWT de Cognito. Las tres tablas usan `PAY_PER_REQUEST`. La pila CloudFormation está en `UPDATE_COMPLETE` y administra los recursos de movimientos y presupuestos. La Lambda, tabla, rol e integración de tarjetas fueron creados manualmente en la consola y todavía no pertenecen a esa pila.
+
+## Pruebas realizadas
+
+- Movimientos: `POST` devolvió `201`, `GET` devolvió `200` con los movimientos y una solicitud sin autorización fue rechazada con `403`.
+- Tarjetas: Lambda `POST` devolvió `201`; `GET` devolvió `200` y un elemento. La tarjeta de prueba también se guardó desde la aplicación, persistió tras recargar y produjo un aviso de pago próximo.
+- Presupuestos: la función, tabla y rutas se desplegaron con CloudFormation. Se guardó un límite desde la aplicación y se comprobó que continuaba visible tras recargar.
+- Frontend: `npm run lint` pasó y la compilación de producción se generó correctamente.
+
+Las capturas que tome el equipo deben guardarse en `Proyecto_Infra/evidence/capturas/`, con nombres que describan cada pantalla. No incluyas contraseñas, claves IAM, tokens ni datos financieros reales.
+
+## Límites de esta entrega
+
+- No hay integración bancaria.
+- Los avisos solo aparecen dentro de la app; no existe envío automático de correo/SMS/push ni ejecución programada.
+- Aún no se implementan metas de ahorro independientes, consejos personalizados ni reportes mensuales enviados/exportables.
+- Los recursos de tarjetas están fuera de CloudFormation; la plantilla no reproduce todavía toda la infraestructura desplegada.
+
+## Repositorio
 
 ```text
-frontend/                 Interfaz React, autenticación y cliente HTTP
-backend/src/              Código Python ejecutado por Lambdas
-backend/scripts/           Sincronizador de fuentes Lambda con CloudFormation
-Proyecto_Infra/template.yaml  Recursos AWS, rutas, roles y permisos
+frontend/                    React, autenticación y cliente HTTP
+backend/src/transactions/    Lambda de movimientos
+backend/src/budgets/         Lambda de presupuestos
+backend/src/cards/           Lambda de tarjetas (configurada manualmente)
+Proyecto_Infra/template.yaml CloudFormation para movimientos y presupuestos
+Proyecto_Infra/architecture.mmd Diagrama de arquitectura
 ```
 
-El cliente HTTP está en el frontend porque corre en el navegador. La lógica de negocio y acceso a DynamoDB está en las funciones Lambda bajo `backend/`. La plantilla describe los recursos que CloudFormation despliega.
-
-## Ejecutar el frontend
+## Ejecutar y compilar el frontend
 
 ```powershell
-cd frontend
+Set-Location frontend
 npm install
-Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Revisa que `.env.local` tenga los identificadores y el endpoint correspondientes a la pila del equipo. Ese archivo está excluido de Git. Nunca agregues claves de acceso IAM ni contraseñas al frontend o al repositorio.
-
-## Mantener y desplegar el código Lambda
-
-Edita las funciones en `backend/src/`. Antes de subir la plantilla a CloudFormation, ejecuta desde la raíz del repositorio:
+Para generar los archivos estáticos que se publican en S3:
 
 ```powershell
-node backend/scripts/sync-lambda-source.mjs --write
-node backend/scripts/sync-lambda-source.mjs
-```
-
-El primer comando actualiza los bloques de código inline en `Proyecto_Infra/template.yaml`; el segundo confirma que las fuentes y la plantilla coinciden. Después revisa el conjunto de cambios de CloudFormation antes de aplicar la actualización. Esta actualización de presupuestos añade una tabla nueva con política de retención y una Lambda independiente; no ha sido desplegada todavía.
-
-## Comprobaciones locales
-
-```powershell
-cd frontend
 npm run lint
 npm run build
 ```
 
-Los comandos anteriores validan la interfaz. Las pruebas reales de Cognito, API Gateway y DynamoDB deben realizarse en el entorno AWS del equipo después del despliegue.
+La configuración local `frontend/.env.local` debe contener los identificadores públicos de Cognito y el endpoint API del equipo. No agregues credenciales IAM, contraseñas ni tokens a esa configuración o a Git.
+
+## Infraestructura como código
+
+`Proyecto_Infra/template.yaml` define la pila de movimientos y presupuestos. El archivo fuente `backend/src/budgets/handler.py` se sincroniza con su bloque inline de CloudFormation mediante `node backend/scripts/sync-lambda-source.mjs --write`. Antes de actualizar la pila, crea y revisa un change set; detén el despliegue si propone reemplazar la tabla de movimientos, el User Pool o la API sin que sea intencional.
+
+Los recursos de tarjetas se desplegaron desde la consola y están documentados en `backend/README.md`. Para reproducir toda la infraestructura en un entorno nuevo, primero hay que añadir/importar esos recursos en IaC y verificar sus permisos.
+
+## Costos
+
+No se utiliza EC2 ni NAT Gateway. Lambda, DynamoDB bajo demanda, S3 y CloudFront cobran según uso y región; el costo gratuito depende de los límites y condiciones vigentes de la cuenta. Evita crear recursos adicionales solo para aumentar el número de servicios.

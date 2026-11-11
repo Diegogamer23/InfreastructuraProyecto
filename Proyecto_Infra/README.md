@@ -1,127 +1,78 @@
-# Finanzas Claras — avance funcional Serverless
+# Finanzas Claras — estado de infraestructura
 
-**Estado del despliegue:** <code>UPDATE_COMPLETE</code><br>
-**Fecha de verificación:** 5 de noviembre de 2026 (hora de Cancún)<br>
-**Región:** <code>us-east-1</code> (US East, N. Virginia)<br>
-**Pila:** <code>Proyectoinfrainicial</code><br>
-
-## Alcance logrado en este avance
-
-Se integró y probó un flujo funcional para registrar y consultar movimientos de demostración:
-
-**Cliente firmado con IAM → API Gateway HTTP API → Lambda → DynamoDB → respuesta HTTP**
-
-La aplicación puede crear un movimiento con <code>POST /transactions</code> y consultarlo con <code>GET /transactions?userId=demo-user</code>. Las dos rutas requieren autenticación AWS IAM con Signature Version 4 (SigV4). Una solicitud sin firmar recibió <code>403</code>, como se esperaba.
-
-Esta entrega comprueba una funcionalidad de extremo a extremo. El dashboard S3 y el inicio de sesión Cognito todavía no forman parte del despliegue actual. Se usaron datos ficticios; no ingresen información financiera real.
+**Verificación:** 11 de noviembre de 2026 · **Región:** `us-east-1` · **Pila:** `Proyectoinfrainicial` (`UPDATE_COMPLETE`)
 
 ## Arquitectura desplegada
 
-~~~mermaid
+El frontend React estático se publica en S3 y CloudFront. Cognito administra el inicio de sesión. API Gateway HTTP API valida el JWT y expone seis rutas protegidas. Tres Lambdas manejan movimientos, presupuestos y tarjetas; cada una consulta o escribe su propia tabla DynamoDB bajo demanda. CloudWatch recibe los logs de ejecución.
+
+Consulta el código Mermaid fuente en `architecture.mmd`.
+
+```mermaid
 flowchart LR
-    Client[Postman o cliente de prueba]
-    IAM[Grupo IAM Proyecto_Infraestructura<br/>4 integrantes]
-    API[API Gateway HTTP API<br/>GET y POST /transactions<br/>Autorización AWS_IAM SigV4]
-    Lambda[Lambda DemoFunction<br/>Python 3.12]
-    Role[LambdaExecutionRole<br/>PutItem y Query limitados a la tabla]
-    DDB[(DynamoDB TransactionsTable<br/>PK userId, SK transactionId<br/>PAY_PER_REQUEST)]
-    Logs[CloudWatch Logs<br/>retención 7 días]
-    CFN[CloudFormation<br/>Proyectoinfrainicial]
+  User[Persona usuaria] --> CF[CloudFront] --> S3[S3: React]
+  S3 --> Browser[React en navegador]
+  Browser -->|Autenticación| Cognito[Cognito]
+  Browser -->|HTTPS + JWT| API[API Gateway HTTP API]
+  API -->|Valida JWT| Cognito
+  API -->|GET/POST /transactions| Tx[Lambda DemoFunction]
+  API -->|GET/POST /budgets| Budget[Lambda BudgetsFunction]
+  API -->|GET/POST /cards| Card[Lambda CardsFunction]
+  Tx --> TxDb[(TransactionsTable)]
+  Budget --> BudgetDb[(BudgetsTable)]
+  Card --> CardDb[(CardsTable)]
+  Tx --> Logs[CloudWatch Logs]
+  Budget --> Logs
+  Card --> Logs
+  Browser -. Avisos calculados con datos API .-> API
+  CFN[CloudFormation] -. administra .-> Tx
+  CFN -. administra .-> Budget
+  CFN -. administra .-> TxDb
+  CFN -. administra .-> BudgetDb
+  Manual[Recursos de tarjetas creados en consola] -. fuera de la pila .-> Card
+  Manual -.-> CardDb
+```
 
-    Client -->|solicitud SigV4| API
-    IAM -. permiso para invocar, heredado de AdministratorAccess .-> API
-    API -->|Lambda permission| Lambda
-    Lambda -. asume .-> Role
-    Role -->|PutItem y Query| DDB
-    Lambda -->|logs de ejecución| Logs
-    CFN -. administra .-> API
-    CFN -. administra .-> Lambda
-    CFN -. administra .-> DDB
-    CFN -. administra .-> Role
-    CFN -. administra .-> Logs
+## Componentes principales
 
-    subgraph Siguiente fase no desplegada
-      S3[Dashboard estático en S3]
-      Cognito[Amazon Cognito]
-      S3 -. interfaz .-> API
-      Cognito -. futuro JWT authorizer .-> API
-    end
-~~~
-
-El archivo fuente del diagrama está en <code>architecture.mmd</code>.
-
-## Componentes y relaciones
-
-| Servicio / recurso | Función y configuración actual | Relación |
+| Componente | Función y configuración | Relación |
 |---|---|---|
-| AWS CloudFormation | Mantiene la infraestructura como código en <code>template.yaml</code>. La pila está en <code>UPDATE_COMPLETE</code>. | Administra la tabla, la Lambda, el rol, los logs y la API. |
-| API Gateway HTTP API | Endpoint <code>https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com</code>. Tiene <code>POST /transactions</code> y <code>GET /transactions</code>; ambas rutas usan <code>AWS_IAM</code>. | Valida SigV4 y solo entonces invoca Lambda. |
-| AWS Lambda | <code>Proyectoinfrainicial-DemoFunction</code>, Python 3.12, memoria 128 MB, timeout 10 s. Maneja las dos rutas. | Usa la variable de entorno <code>TABLE_NAME</code>, escribe y consulta DynamoDB. |
-| Amazon DynamoDB | Tabla bajo demanda, cifrado en reposo, clave compuesta <code>userId</code> y <code>transactionId</code>. La consulta de prueba devolvió 6 movimientos de <code>demo-user</code>. | Lambda escribe con <code>PutItem</code> y consulta por <code>userId</code> con <code>Query</code>. |
-| AWS IAM | El grupo <code>Proyecto_Infraestructura</code> tiene cuatro integrantes y la política existente <code>AdministratorAccess</code>. El rol de ejecución de Lambda tiene permisos de datos limitados a la tabla. | Los integrantes firman las llamadas con SigV4; Lambda asume su propio rol al trabajar con DynamoDB y CloudWatch. |
-| Amazon CloudWatch Logs | Grupo <code>/aws/lambda/Proyectoinfrainicial-DemoFunction</code>, retención de 7 días. | Recibe logs de inicio, fin y errores de Lambda. |
+| Amazon Cognito | Registro, confirmación e inicio de sesión; entrega JWT al navegador. | API Gateway usa el autorizador JWT de este User Pool. |
+| API Gateway HTTP API | Seis rutas: GET/POST para `/transactions`, `/budgets` y `/cards`; todas con JWT. | Integra cada dominio con su Lambda. |
+| Lambda de movimientos | Python 3.12, handler `index.handler`; crea y consulta ingresos/gastos. | Usa `TransactionsTable` y su rol de ejecución. |
+| Lambda de presupuestos | Python 3.12, handler `index.handler`; crea/actualiza límites y los consulta por mes. | Usa `BudgetsTable`; definida y administrada por CloudFormation. |
+| Lambda de tarjetas | Python 3.12, handler `lambda_function.handler`; guarda y consulta nombre, emisor, límite, saldo y días de corte/pago. | Usa `CardsTable`; recursos creados manualmente, protegidos por JWT y asociados al autorizador. |
+| DynamoDB | Tres tablas con claves compuestas por usuario y entidad; modo `PAY_PER_REQUEST`. | Cada Lambda usa solo su tabla. |
+| S3 y CloudFront | Entregan la aplicación React estática mediante HTTPS y caché CDN. | El navegador se comunica con Cognito y API Gateway. |
+| CloudWatch Logs | Registra invocaciones y errores de las funciones. | Cada Lambda produce su propio grupo de logs. |
+| CloudFormation | Pila principal con 21 recursos administrados, incluidos movimientos y presupuestos. | La infraestructura de tarjetas está fuera de esta pila. |
 
-### Modelo de datos
+## Rutas y pruebas comprobadas
 
-La tabla requiere estas claves en cada elemento:
+| Ruta o flujo | Resultado |
+|---|---|
+| `POST /transactions` y `GET /transactions` | Prueba desde la aplicación: creación y consulta de movimientos. También hubo una prueba sin firma rechazada con `403`. |
+| `POST /budgets` y `GET /budgets` | Recursos desplegados con CloudFormation; el límite guardado desde la aplicación sigue visible al recargar. |
+| `POST /cards` y `GET /cards` | Prueba de Lambda: `201` al guardar y `200` al consultar. En la aplicación, la tarjeta persiste tras recargar. |
+| Avisos | La app muestra el recordatorio de pago próximo. Los avisos se calculan dentro del frontend a partir de tarjetas, presupuestos y movimientos. |
+| Frontend | `npm run lint` pasó; compilación de producción generada y publicada en S3. |
 
-- <code>userId</code> — clave de partición, de tipo cadena.
-- <code>transactionId</code> — clave de ordenamiento, de tipo cadena y única por movimiento.
+## Problemas encontrados y corregidos
 
-El movimiento agrega <code>amount</code> (número decimal), <code>type</code>, <code>category</code>, <code>description</code>, <code>date</code> y <code>createdAt</code>. La Lambda usa una fecha UTC y un UUID para que cada movimiento tenga una clave distinta.
+1. El primer POST de tarjeta usó `cardName`; la Lambda requería `name`. Se corrigió el cuerpo y el POST respondió `201`.
+2. El evento de prueba usó `dueDay`; la Lambda requería `paymentDueDay`. Se corrigió y el POST respondió `201`.
+3. La tabla de tarjetas no aparecía en la variable de entorno correcta de Lambda. Se estableció `CARDS_TABLE_NAME` con el nombre real y la consulta devolvió la tarjeta guardada.
 
-### Rutas de la API
+## Alcance y límites
 
-| Método y ruta | Autenticación | Resultado comprobado |
-|---|---|---|
-| <code>POST /transactions</code> | IAM SigV4 | <code>201 Created</code>; guarda el movimiento de demostración. |
-| <code>GET /transactions?userId=demo-user</code> | IAM SigV4 | <code>200 OK</code>; devuelve los movimientos del usuario de demostración. |
+- Los gastos, ingresos, presupuestos y saldos de tarjeta se ingresan manualmente.
+- No se guardan PAN ni CVV y no hay conexión bancaria.
+- Avisos solo se muestran dentro de la app al abrir/refrescar esa sección; no hay EventBridge Scheduler ni envío por correo/SMS/push.
+- Metas de ahorro independientes y consejos personalizados todavía no están implementados.
+- Los recursos de tarjetas deben documentarse y añadirse/importarse a IaC para que CloudFormation reproduzca toda la cuenta.
 
-Para llamar desde Postman, selecciona autenticación **AWS Signature**, región <code>us-east-1</code>, servicio <code>execute-api</code> y usa credenciales locales de IAM. No guardes claves en este repositorio. Las llamadas desde una identidad sin firma se rechazan con <code>403</code>.
+## Archivos IaC
 
-## Evidencia de pruebas y métricas
+`template.yaml` administra la pila de movimientos y presupuestos. Antes de desplegar cambios, revisa el change set y confirma que no proponga reemplazar `TransactionsTable`, Cognito o la API sin intención. El archivo no incluye todavía los recursos manuales de tarjetas.
 
-La validación en AWS confirmó:
-
-- <code>POST</code> firmado por IAM: **201**.
-- <code>GET</code> firmado por IAM: **200**, y la respuesta incluyó el movimiento creado.
-- <code>GET</code> sin firma: **403**, acceso no autorizado rechazado.
-- Elementos consultados para <code>demo-user</code>: **6**.
-- En la última hora observada: **8 invocaciones Lambda, 0 errores y 0 throttles**.
-- Duración Lambda promedio observada: **132.4 ms**; máxima: **293.54 ms**.
-- Un POST con monto negativo recibió **400** y no se escribió en DynamoDB.
-- CloudWatch Logs devolvió **35 eventos** en la ventana consultada.
-- La simulación de políticas permitió GET y POST a los cuatro miembros del grupo IAM; las llamadas firmadas se ejecutaron con el perfil Diego_Villa.
-
-La evidencia JSON de la simulación de acceso IAM está en <code>evidence/13-iam-team-access.json</code>. Los resultados API, métricas, logs y estado de CloudFormation también se guardan en <code>evidence/</code>. El reporte visual está en <code>evidence/reporte-end-to-end.html</code>.
-
-## Problemas técnicos detectados y resueltos
-
-| Problema | Causa encontrada | Corrección | Comprobación |
-|---|---|---|---|
-| Una nueva escritura podía reemplazar un movimiento anterior. | La primera Lambda usaba siempre <code>demo-transaction-001</code>. | Se genera <code>transactionId</code> con fecha UTC y UUID. | DynamoDB conserva el registro anterior y muestra movimientos nuevos con IDs distintos. |
-| La consulta <code>GET</code> no tenía permiso suficiente. | El rol inicial solo permitía <code>dynamodb:PutItem</code>. | Se agregó <code>dynamodb:Query</code> limitado al ARN de la tabla del stack. | <code>GET</code> firmado devuelve <code>200</code> y los movimientos esperados. |
-| El clon del repositorio tenía una plantilla con rutas públicas, distinta de la pila activa. | <code>AuthorizationType: NONE</code> no coincide con el despliegue AWS_IAM y podía abrir las rutas en otro despliegue. | Se alineó la plantilla del repositorio con la pila activa; ambas rutas usan <code>AuthorizationType: AWS_IAM</code>. | GET sin firma recibió <code>403</code>; las rutas firmadas funcionaron. |
-
-La IA se utilizó para revisar el código y la política IAM, identificar las causas, proponer las correcciones y preparar casos de prueba. Las verificaciones se realizaron contra los recursos desplegados en AWS.
-
-## Despliegue y seguridad
-
-El archivo <code>template.yaml</code> es la fuente IaC actual. Para actualizar recursos existentes:
-
-1. En CloudFormation, abre <code>Proyectoinfrainicial</code>.
-2. Crea un change set usando <strong>Replace existing template</strong> y carga <code>template.yaml</code>.
-3. Revisa primero los recursos y la columna de reemplazo. La tabla DynamoDB no debe marcarse para reemplazo.
-4. Ejecuta el change set y espera <code>UPDATE_COMPLETE</code>.
-
-No uses credenciales de AWS en el código, en el HTML ni en GitHub. El grupo IAM actual tiene permisos administrativos amplios porque así fue configurado para el equipo; es suficiente para la práctica, pero no es un modelo de mínimo privilegio para producción.
-
-## Costos y límites de este avance
-
-No se usa EC2 ni NAT Gateway. DynamoDB está en modo <code>PAY_PER_REQUEST</code>, Lambda usa 128 MB y el grupo de logs conserva datos siete días. Estos servicios cobran según uso y región; el nivel gratuito depende de la cuenta y de las condiciones vigentes, por lo que no se promete costo cero.
-
-No se desplegaron S3, CloudFront, Cognito, recordatorios, reportes programados ni integración bancaria. La API actual es un prototipo para un usuario ficticio; el siguiente paso para usuarios finales es integrar Cognito como emisor de JWT, obtener el identificador de usuario desde el token y alojar el dashboard en S3. No se deben usar credenciales IAM de larga duración en un navegador.
-
-
-Las capturas de consola están organizadas en vidence/capturas/ y el reporte HTML las muestra desde esa carpeta.
-
+Las capturas adicionales de CloudFormation, las pruebas UI de presupuestos/tarjetas y la pantalla Avisos deben guardarse en `evidence/capturas/` antes de entregar el repositorio.
