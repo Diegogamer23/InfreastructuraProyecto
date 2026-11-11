@@ -17,6 +17,11 @@ const lambdaSources = [
     nextResource: 'BudgetsApiInvokeLambdaPermission',
     sourcePath: 'backend/src/budgets/handler.py',
   },
+  {
+    resource: 'PlanningFunction',
+    nextResource: 'PlanningApiInvokePermissionGoals',
+    sourcePath: 'backend/src/planning/handler.py',
+  },
 ]
 
 function locateCodeBlock(template, resourceName, nextResourceName) {

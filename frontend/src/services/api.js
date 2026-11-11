@@ -63,3 +63,24 @@ export function saveCard(card) {
     body: JSON.stringify(card),
   })
 }
+
+export async function listGoals() {
+  const result = await apiRequest('/goals')
+  return Array.isArray(result.goals) ? result.goals : []
+}
+
+export function saveGoal(goal) {
+  return apiRequest('/goals', {
+    method: 'POST',
+    body: JSON.stringify(goal),
+  })
+}
+
+export async function getNotifications() {
+  const result = await apiRequest('/notifications')
+  return Array.isArray(result.notices) ? result.notices : []
+}
+
+export function getMonthlyReport(month) {
+  return apiRequest(`/reports/monthly?month=${encodeURIComponent(month)}`)
+}

@@ -6,6 +6,8 @@ const navigation = [
   { to: '/app/movements', label: 'Movimientos', icon: '↕' },
   { to: '/app/budgets', label: 'Presupuestos', icon: '◷' },
   { to: '/app/cards', label: 'Tarjetas', icon: '▤' },
+  { to: '/app/goals', label: 'Metas', icon: '✦' },
+  { to: '/app/reports', label: 'Reporte', icon: '▥' },
   { to: '/app/notifications', label: 'Avisos', icon: '♧' },
 ]
 

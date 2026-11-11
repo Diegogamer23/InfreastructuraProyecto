@@ -8,9 +8,11 @@ import BudgetsPage from './pages/BudgetsPage.jsx'
 import CardsPage from './pages/CardsPage.jsx'
 import ConfirmPage from './pages/ConfirmPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
+import GoalsPage from './pages/GoalsPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import MovementsPage from './pages/MovementsPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
+import ReportsPage from './pages/ReportsPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 
 function HomeRedirect() {
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="movements" element={<MovementsPage />} />
           <Route path="budgets" element={<BudgetsPage />} />
           <Route path="cards" element={<CardsPage />} />
+          <Route path="goals" element={<GoalsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
       </Route>

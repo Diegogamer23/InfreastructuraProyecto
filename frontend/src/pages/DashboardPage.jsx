@@ -40,7 +40,11 @@ export default function DashboardPage() {
           <h1>Hola, vamos paso a paso.</h1>
           <p>Una vista sencilla para entender tus decisiones de dinero.</p>
         </div>
-        <Link className="button button-primary" to="/app/movements">＋ Registrar movimiento</Link>
+        <div className="dashboard-actions">
+          <Link className="button button-primary" to="/app/movements">＋ Registrar movimiento</Link>
+          <Link className="button button-secondary" to="/app/reports">Ver reporte mensual</Link>
+          <Link className="button button-secondary" to="/app/goals">Metas de ahorro</Link>
+        </div>
       </section>
 
       {error && <div className="alert alert-error inline-alert" role="alert"><span>{error}</span><button className="text-button" type="button" onClick={() => refresh().catch(() => {})}>Reintentar</button></div>}
