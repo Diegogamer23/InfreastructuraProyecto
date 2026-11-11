@@ -1,51 +1,48 @@
 # Backend serverless
 
-El navegador llama a API Gateway desde `frontend/src/services/api.js`. AWS Cognito firma cada solicitud con un JWT; API Gateway lo valida antes de invocar la Lambda correspondiente. Las Lambdas obtienen el `userId` del claim `sub` validado y acceden a DynamoDB con roles separados.
+El frontend llama a API Gateway desde `frontend/src/services/api.js`. Amazon Cognito entrega un JWT de sesión y API Gateway valida el token antes de invocar una función. Cada handler deriva el `userId` del claim validado `sub` y usa un rol IAM independiente.
 
-## Dominios
+## Funciones y rutas
 
-### Movimientos
+| Carpeta fuente | Lambda desplegada | Rutas | Tabla(s) |
+|---|---|---|---|
+| `src/transactions/handler.py` | `Proyectoinfrainicial-DemoFunction` | `GET/POST /transactions` | `TransactionsTable` |
+| `src/budgets/handler.py` | `Proyectoinfrainicial-BudgetsFunction` | `GET/POST /budgets` | `BudgetsTable` |
+| `src/cards/handler.py` | `Proyectoinfrainicial-CardsFunction` | `GET/POST /cards` | `CardsTable` |
+| `src/planning/handler.py` | `Proyectoinfrainicial-PlanningFunction` | `GET/POST /goals`, `GET /notifications`, `GET /reports/monthly` | `GoalsTable`, `TransactionsTable`, `BudgetsTable`, `CardsTable` |
 
-- Código: `src/transactions/handler.py` (fuente sincronizada dentro de `Proyecto_Infra/template.yaml`).
-- Función desplegada: `Proyectoinfrainicial-DemoFunction`, Python 3.12, handler `index.handler`.
-- API: `GET /transactions`, `POST /transactions`.
-- Tabla: `Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141`, claves `userId` y `transactionId`, modo `PAY_PER_REQUEST`.
-- IAM: `PutItem` y `Query` sobre esta tabla; permisos de CloudWatch Logs.
+Las cuatro funciones usan Python 3.12. `CardsFunction` usa el handler `index.handler` porque su código se entrega en línea con `Code.ZipFile` de CloudFormation.
 
-### Presupuestos
+## Tablas
 
-- Código: `src/budgets/handler.py`, sincronizado con `Proyecto_Infra/template.yaml`.
-- Función: `Proyectoinfrainicial-BudgetsFunction`, Python 3.12, handler `index.handler`.
-- API: `GET /budgets?month=YYYY-MM`, `POST /budgets`.
-- Tabla: `Proyectoinfrainicial-BudgetsTable-7V3OBYTQDKGO`, claves `userId` y `budgetKey` (`mes#categoría`), modo `PAY_PER_REQUEST`.
-- IAM: `PutItem` y `Query` limitados a la tabla; permisos de logs.
-- El POST crea o actualiza el límite de una categoría para un mes. La app calcula el gasto comparando con movimientos reales.
+| Tabla | Clave de partición | Clave de ordenación | Capacidad |
+|---|---|---|---|
+| `Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141` | `userId` | `transactionId` | `PAY_PER_REQUEST` |
+| `Proyectoinfrainicial-BudgetsTable-7V3OBYTQDKGO` | `userId` | `budgetKey` (`YYYY-MM#categoría`) | `PAY_PER_REQUEST` |
+| `Proyectoinfrainicial-CardsTable` | `userId` | `cardId` | `PAY_PER_REQUEST` |
+| `Proyectoinfrainicial-GoalsTable-1W00JX2OLNLUI` | `userId` | `goalId` | `PAY_PER_REQUEST` |
 
-### Tarjetas
+El grupo de logs de cada función tiene retención de siete días. La pila CloudFormation `Proyectoinfrainicial` administra las funciones, tablas, roles, permisos, API Gateway y Cognito. Los recursos de tarjetas se importaron a la pila para que las actualizaciones futuras queden controladas por IaC.
 
-- Código: `src/cards/handler.py`.
-- Función: `Proyectoinfrainicial-CardsFunction`, Python 3.12, handler `lambda_function.handler`.
-- API: `GET /cards`, `POST /cards`.
-- Tabla: `Proyectoinfrainicial-CardsTable`, claves `userId` y `cardId`, modo `PAY_PER_REQUEST`.
-- IAM: `GetItem`, `PutItem` y `Query` limitados a la tabla, además de permisos de CloudWatch Logs.
-- Estos recursos se configuraron manualmente desde la consola y no están incluidos en la pila CloudFormation actual.
+## Sincronización de fuente y plantilla
 
-La pantalla de tarjetas solo almacena nombre para identificarla, emisor, límite, saldo actual y días de corte/pago. No solicita número de tarjeta ni CVV. La app calcula avisos de pago en el frontend; no envía correo/SMS/push.
-
-## Sincronizar y desplegar movimientos/presupuestos
-
-Los handlers de transacciones y presupuestos son la fuente editable. Desde la raíz del repositorio:
+Los archivos `src/*/handler.py` son las fuentes editables. Desde la raíz del repositorio:
 
 ```powershell
 node backend/scripts/sync-lambda-source.mjs --write
 node backend/scripts/sync-lambda-source.mjs
 ```
 
-El primer comando actualiza los bloques inline de `Proyecto_Infra/template.yaml`; el segundo comprueba que estén sincronizados. Luego carga la plantilla con CloudFormation, crea un change set y revísalo antes de ejecutarlo. La plantilla actual no importa ni administra los recursos manuales de tarjetas.
+`--write` actualiza los bloques inline de `Proyecto_Infra/template.yaml`; sin `--write`, el script verifica que fuente y plantilla sigan sincronizadas. Revisa el diff antes de cargar la plantilla en CloudFormation.
+
+## Despliegue
+
+Consulta el procedimiento completo en [`../Proyecto_Infra/README.md`](../Proyecto_Infra/README.md). En AWS Console se usa CloudFormation, se revisa el change set y se ejecuta solo si los cambios son los esperados. La plantilla requiere `CAPABILITY_NAMED_IAM`.
 
 ## Seguridad
 
-- API Gateway requiere el autorizador JWT de Cognito en las seis rutas.
-- El `userId` no se recibe del cuerpo del navegador: se obtiene de `requestContext.authorizer.jwt.claims.sub`.
-- Los roles de ejecución de Lambda deben permitir acciones solo sobre su tabla y su grupo de logs.
-- Nunca añadas credenciales IAM, tokens JWT o contraseñas al frontend o al repositorio.
+- Las diez rutas requieren JWT del User Pool Cognito.
+- El `userId` se obtiene de `requestContext.authorizer.jwt.claims.sub`, no del cuerpo de la solicitud.
+- Cada función tiene un rol IAM propio, con acciones DynamoDB limitadas a las tablas que utiliza y permisos para sus logs.
+- Las tarjetas solo guardan nombre, emisor, límite, saldo y días de corte/pago. No se guardan PAN ni CVV.
+- Nunca añadas access keys, claves secretas, contraseñas o JWT al frontend ni al repositorio.

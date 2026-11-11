@@ -1,29 +1,34 @@
 # Finanzas Claras — frontend
 
-Interfaz React para la aplicación de salud financiera. El frontend se comunica con los servicios del backend definidos en `../Proyecto_Infra/template.yaml`.
+Interfaz React de la aplicación financiera. La autenticación usa Amazon Cognito y las llamadas autenticadas llegan al backend mediante API Gateway HTTP API.
 
-## Módulos
+## Secciones
 
-- `src/pages/`: login, registro, confirmación, resumen, movimientos, presupuestos, tarjetas y avisos; cada pantalla tiene su propio archivo.
-- `src/components/`: distribución, navegación, protección de rutas y estados compartidos.
-- `src/auth/`: estado de sesión y operaciones de Amazon Cognito.
-- `src/services/api.js`: llamadas HTTP autenticadas a API Gateway.
-- `src/hooks/useTransactions.js`: carga y actualización de movimientos.
+- `src/pages/`: inicio de sesión, registro, confirmación, dashboard, movimientos, presupuestos, tarjetas, metas, avisos y reporte mensual.
+- `src/auth/`: contexto de sesión, registro, confirmación, login y logout de Cognito.
+- `src/services/api.js`: cliente HTTP que adjunta el JWT a API Gateway.
+- `src/components/`: navegación, protección de rutas y pantallas de carga.
+- `src/hooks/`: estado y consulta de movimientos.
 
-El flujo desplegado y comprobado desde la interfaz es registro e inicio de sesión con Cognito, más consulta y creación de movimientos por API Gateway, Lambda y DynamoDB. Presupuestos ya tiene pantalla, Lambda y tabla definidos en el código local; falta desplegar la actualización de CloudFormation. Tarjetas y avisos son módulos posteriores y aún no guardan datos en AWS.
+La aplicación trabaja con datos capturados manualmente. No se conecta a bancos, procesa pagos ni solicita números de tarjeta o CVV. Los avisos se generan dentro de la app cuando se consulta la sección; no se envían por correo, SMS ni push.
 
-## Preparar el entorno local
+## Configurar el entorno
 
-1. Instala Node.js y npm.
-2. En esta carpeta, instala las dependencias con `npm install`.
-3. Copia `.env.example` como `.env.local` y conserva los valores correctos del entorno AWS del equipo.
-4. Inicia la interfaz con `npm run dev` y abre la dirección local que muestre Vite.
+Requiere Node.js y npm.
 
-No agregues credenciales de IAM ni claves de acceso de AWS al frontend. Los identificadores del User Pool y del cliente web son configuración pública; el usuario inicia sesión en Cognito y la aplicación envía el token JWT a API Gateway.
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+npm run dev
+```
 
-## Comprobaciones locales
+Configura `.env.local` con los identificadores públicos de Cognito y el endpoint de API del entorno. No agregues claves IAM, secretos, contraseñas ni tokens. `.env.local` está excluido de Git.
 
-- `npm run lint`
-- `npm run build`
+## Verificar y compilar
 
-El despliegue del sitio en S3/CloudFront y la ampliación de la API son pasos de infraestructura separados.
+```powershell
+npm run lint
+npm run build
+```
+
+Vite escribe el sitio estático en `dist/`. Para publicarlo, carga el contenido de `dist/` al bucket S3 del sitio y crea una invalidación `/*` en CloudFront. El bucket y la distribución se administran aparte de la plantilla principal de CloudFormation.

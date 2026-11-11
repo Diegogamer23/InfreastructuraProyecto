@@ -1,0 +1,205 @@
+{
+  "capturedAtUtc": "2026-11-11T23:02:13Z",
+  "region": "us-east-1",
+  "stack": {
+    "name": "Proyectoinfrainicial",
+    "status": "UPDATE_COMPLETE",
+    "lastUpdatedAtUtc": "2026-11-11T17:12:35.594-05:00",
+    "resourceCount": 43,
+    "resourceTypeCounts": {
+      "AWS::ApiGatewayV2::Api": 1,
+      "AWS::ApiGatewayV2::Authorizer": 1,
+      "AWS::ApiGatewayV2::Integration": 4,
+      "AWS::ApiGatewayV2::Route": 10,
+      "AWS::ApiGatewayV2::Stage": 1,
+      "AWS::Cognito::UserPool": 1,
+      "AWS::Cognito::UserPoolClient": 1,
+      "AWS::DynamoDB::Table": 4,
+      "AWS::IAM::ManagedPolicy": 1,
+      "AWS::IAM::Role": 4,
+      "AWS::Lambda::Function": 4,
+      "AWS::Lambda::Permission": 7,
+      "AWS::Logs::LogGroup": 4
+    }
+  },
+  "functions": [
+    {
+      "name": "Proyectoinfrainicial-DemoFunction",
+      "state": "Active",
+      "lastUpdateStatus": "Successful",
+      "runtime": "python3.12",
+      "handler": "index.handler",
+      "timeoutSeconds": 10
+    },
+    {
+      "name": "Proyectoinfrainicial-CardsFunction",
+      "state": "Active",
+      "lastUpdateStatus": "Successful",
+      "runtime": "python3.12",
+      "handler": "index.handler",
+      "timeoutSeconds": 10
+    },
+    {
+      "name": "Proyectoinfrainicial-BudgetsFunction",
+      "state": "Active",
+      "lastUpdateStatus": "Successful",
+      "runtime": "python3.12",
+      "handler": "index.handler",
+      "timeoutSeconds": 10
+    },
+    {
+      "name": "Proyectoinfrainicial-PlanningFunction",
+      "state": "Active",
+      "lastUpdateStatus": "Successful",
+      "runtime": "python3.12",
+      "handler": "index.handler",
+      "timeoutSeconds": 15
+    }
+  ],
+  "api": {
+    "id": "3wsywaa6oh",
+    "baseUrl": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com",
+    "routeCount": 10,
+    "routes": [
+      {
+        "route": "GET /budgets",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "GET /cards",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "GET /goals",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "GET /notifications",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "GET /reports/monthly",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "GET /transactions",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "POST /budgets",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "POST /cards",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "POST /goals",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      },
+      {
+        "route": "POST /transactions",
+        "auth": "JWT",
+        "authorizerId": "dor0bd"
+      }
+    ]
+  },
+  "cardsTable": {
+    "name": "Proyectoinfrainicial-CardsTable",
+    "status": "ACTIVE",
+    "billingMode": "PAY_PER_REQUEST",
+    "keySchema": [
+      {
+        "AttributeName": "userId",
+        "KeyType": "HASH"
+      },
+      {
+        "AttributeName": "cardId",
+        "KeyType": "RANGE"
+      }
+    ]
+  },
+  "logGroups": [
+    {
+      "name": "/aws/lambda/Proyectoinfrainicial-BudgetsFunction",
+      "retentionDays": 7
+    },
+    {
+      "name": "/aws/lambda/Proyectoinfrainicial-CardsFunction",
+      "retentionDays": 7
+    },
+    {
+      "name": "/aws/lambda/Proyectoinfrainicial-DemoFunction",
+      "retentionDays": 7
+    },
+    {
+      "name": "/aws/lambda/Proyectoinfrainicial-PlanningFunction",
+      "retentionDays": 7
+    }
+  ],
+  "cardsInvokePermissions": [
+    {
+      "sourceArn": "arn:aws:execute-api:us-east-1:014675907640:3wsywaa6oh/*/GET/cards"
+    },
+    {
+      "sourceArn": "arn:aws:execute-api:us-east-1:014675907640:3wsywaa6oh/*/POST/cards"
+    }
+  ],
+  "cardsLambdaSmokeTests": [
+    {
+      "operation": "GET /cards (synthetic test subject)",
+      "statusCode": 200,
+      "functionError": null,
+      "result": "one existing test record returned"
+    },
+    {
+      "operation": "POST /cards (synthetic test subject)",
+      "statusCode": 201,
+      "functionError": null,
+      "dynamoDbItemVerified": true,
+      "temporaryRecordDeleted": true
+    }
+  ],
+  "deployedTemplate": {
+    "s3Key": "s3://cf-templates-1gdqe4ayik5za-us-east-1/finanzas-claras/releases/2026-11-11/final-stack-v3.yaml",
+    "localTemplateSha256": "48061DF267FA3F39993E6190A04FA1654BE651D9F1B7F52946F13A037473FC21"
+  },
+  "frontendHosting": {
+    "distributionId": "EH4B047E53TRH",
+    "defaultRootObject": "index.html",
+    "bucket": "finanzas-claras-web--20261109-4826",
+    "latestInvalidation": {
+      "id": "I2UJBNWIOGOVY654I5HDX4G4IK",
+      "status": "Completed"
+    },
+    "assets": [
+      {
+        "contentType": "text/html",
+        "key": "index.html",
+        "sizeBytes": 561
+      },
+      {
+        "contentType": "application/javascript",
+        "key": "assets/index-B4Ardjeo.js",
+        "sizeBytes": 451575
+      },
+      {
+        "contentType": "text/css",
+        "key": "assets/index-DWj0uq9G.css",
+        "sizeBytes": 28575
+      }
+    ],
+    "domain": "d32bc7tq7qvtgu.cloudfront.net",
+    "enabled": true,
+    "status": "Deployed"
+  }
+}

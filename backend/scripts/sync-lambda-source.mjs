@@ -9,7 +9,7 @@ const writeMode = process.argv.includes('--write')
 const lambdaSources = [
   {
     resource: 'DemoFunction',
-    nextResource: 'TransactionsHttpApi',
+    nextResource: 'CardsFunction',
     sourcePath: 'backend/src/transactions/handler.py',
   },
   {
@@ -21,6 +21,11 @@ const lambdaSources = [
     resource: 'PlanningFunction',
     nextResource: 'PlanningApiInvokePermissionGoals',
     sourcePath: 'backend/src/planning/handler.py',
+  },
+  {
+    resource: 'CardsFunction',
+    nextResource: 'TransactionsHttpApi',
+    sourcePath: 'backend/src/cards/handler.py',
   },
 ]
 

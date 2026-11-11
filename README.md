@@ -1,100 +1,156 @@
 # Finanzas Claras
 
-Aplicación web serverless para que una persona registre ingresos y gastos, defina presupuestos por categoría, organice los datos de sus tarjetas y consulte avisos financieros básicos. Se usan datos ingresados manualmente; la aplicación no se conecta a bancos ni guarda números de tarjeta o CVV.
+Aplicación web serverless para registrar ingresos y gastos, organizar presupuestos, metas y tarjetas, y consultar un resumen de salud financiera. Los datos se capturan manualmente. La aplicación no se conecta a bancos y no solicita ni almacena números de tarjeta o CVV.
 
-**Estado verificado:** 11 de noviembre de 2026 · **Región:** `us-east-1` · **Pila principal:** `Proyectoinfrainicial`
+**Estado verificado:** 11 de noviembre de 2026
+**Región:** `us-east-1`
+**Pila CloudFormation:** `Proyectoinfrainicial` (`UPDATE_COMPLETE`, 43 recursos)
 
-## Estado funcional
+## Funcionalidades
 
-- Registro, confirmación e inicio de sesión con Amazon Cognito.
-- Aplicación React publicada en S3 y distribuida mediante CloudFront.
-- Movimientos: ingresos y gastos con consulta y escritura en DynamoDB.
-- Presupuestos mensuales por categoría: consulta, creación/actualización y comparación con los gastos reales.
-- Tarjetas: almacenamiento manual del emisor, límite, saldo y días de corte/pago.
-- Avisos dentro de la aplicación para fechas de pago cercanas, presupuestos usados al 80% o más y gastos planeados próximos.
-- El panel presenta balance, movimientos recientes y gastos por categoría.
+- Registro, confirmación, inicio y cierre de sesión con Amazon Cognito.
+- Dashboard con balance, movimientos recientes y desglose de gastos.
+- Ingresos y gastos reales o planeados, guardados por usuario.
+- Presupuestos mensuales por categoría.
+- Metas de ahorro.
+- Tarjetas registradas manualmente con emisor, límite, saldo y días de corte y pago.
+- Avisos dentro de la aplicación para pagos próximos, presupuestos cerca del límite, gastos planeados y metas próximas.
+- Reporte mensual con ingresos, gastos, categorías, presupuestos y recomendaciones sencillas.
 
-Los avisos se calculan al abrir la sección y no se envían por correo, SMS ni notificaciones push.
+Los avisos se calculan cuando la aplicación consulta `/notifications`; no se envían por correo, SMS ni notificaciones push. No hay conexión bancaria ni cargos/pagos automáticos.
 
-## Arquitectura actual
+## Arquitectura
 
 ```mermaid
 flowchart LR
-  U[Persona usuaria] --> CF[CloudFront]
+  U[Persona usuaria] --> CF[CloudFront HTTPS]
   CF --> S3[S3: React estático]
-  U --> FE[React en el navegador]
-  FE -->|registro e inicio de sesión| C[Cognito User Pool]
-  FE -->|HTTPS con token JWT| API[API Gateway HTTP API]
-  API -->|valida token| C
+  S3 --> Browser[React en navegador]
+  Browser -->|Registro e inicio de sesión| C[Cognito User Pool]
+  Browser -->|HTTPS con JWT| API[API Gateway HTTP API]
+  API -->|Valida JWT| C
   API -->|GET/POST /transactions| TX[Lambda DemoFunction]
   API -->|GET/POST /budgets| BG[Lambda BudgetsFunction]
-  API -->|GET/POST /cards| CC[Lambda CardsFunction]
+  API -->|GET/POST /cards| CD[Lambda CardsFunction]
+  API -->|GET/POST /goals; GET /notifications; GET /reports/monthly| PL[Lambda PlanningFunction]
   TX --> T[(DynamoDB TransactionsTable)]
   BG --> B[(DynamoDB BudgetsTable)]
-  CC --> K[(DynamoDB CardsTable)]
+  CD --> CDB[(DynamoDB CardsTable)]
+  PL --> T
+  PL --> B
+  PL --> CDB
+  PL --> G[(DynamoDB GoalsTable)]
   TX --> CW[CloudWatch Logs]
   BG --> CW
-  CC --> CW
-  FE -. Avisos calculados en React .-> API
-  CFN[CloudFormation] -. administra .-> TX
+  CD --> CW
+  PL --> CW
+  IAM[IAM: roles de ejecución con permisos limitados] -.-> TX
+  IAM -.-> BG
+  IAM -.-> CD
+  IAM -.-> PL
+  CFN[CloudFormation: Proyectoinfrainicial] -. administra .-> API
+  CFN -. administra .-> TX
   CFN -. administra .-> BG
+  CFN -. administra .-> CD
+  CFN -. administra .-> PL
   CFN -. administra .-> T
   CFN -. administra .-> B
-  MAN[Tarjetas: recursos creados manualmente] -. fuera de la pila actual .-> CC
+  CFN -. administra .-> CDB
+  CFN -. administra .-> G
 ```
 
-Las seis rutas de la API requieren el autorizador JWT de Cognito. Las tres tablas usan `PAY_PER_REQUEST`. La pila CloudFormation está en `UPDATE_COMPLETE` y administra los recursos de movimientos y presupuestos. La Lambda, tabla, rol e integración de tarjetas fueron creados manualmente en la consola y todavía no pertenecen a esa pila.
+El diagrama Mermaid editable está en [`Proyecto_Infra/architecture.mmd`](Proyecto_Infra/architecture.mmd). La plantilla administra Cognito, API Gateway, las cuatro Lambdas, sus permisos/roles, grupos de logs y las cuatro tablas DynamoDB. El bucket de archivos estáticos, la distribución de CloudFront y los objetos del frontend se configuraron y publican por separado.
 
-## Pruebas realizadas
+## API
 
-- Movimientos: `POST` devolvió `201`, `GET` devolvió `200` con los movimientos y una solicitud sin autorización fue rechazada con `403`.
-- Tarjetas: Lambda `POST` devolvió `201`; `GET` devolvió `200` y un elemento. La tarjeta de prueba también se guardó desde la aplicación, persistió tras recargar y produjo un aviso de pago próximo.
-- Presupuestos: la función, tabla y rutas se desplegaron con CloudFormation. Se guardó un límite desde la aplicación y se comprobó que continuaba visible tras recargar.
-- Frontend: `npm run lint` pasó y la compilación de producción se generó correctamente.
+Las diez rutas requieren el autorizador JWT de Cognito. La Lambda obtiene el identificador de usuario del claim validado `sub`; no confía en un `userId` enviado por el navegador.
 
-Las capturas que tome el equipo deben guardarse en `Proyecto_Infra/evidence/capturas/`, con nombres que describan cada pantalla. No incluyas contraseñas, claves IAM, tokens ni datos financieros reales.
+| Método y ruta | Lambda | Uso |
+|---|---|---|
+| `GET /transactions` | `DemoFunction` | Consultar movimientos propios |
+| `POST /transactions` | `DemoFunction` | Registrar ingreso o gasto |
+| `GET /budgets` | `BudgetsFunction` | Consultar presupuestos del mes |
+| `POST /budgets` | `BudgetsFunction` | Crear o actualizar un presupuesto |
+| `GET /cards` | `CardsFunction` | Consultar tarjetas propias |
+| `POST /cards` | `CardsFunction` | Crear o actualizar una tarjeta |
+| `GET /goals` | `PlanningFunction` | Consultar metas propias |
+| `POST /goals` | `PlanningFunction` | Crear o actualizar una meta |
+| `GET /notifications` | `PlanningFunction` | Calcular avisos dentro de la app |
+| `GET /reports/monthly` | `PlanningFunction` | Generar el reporte de un mes |
 
-## Límites de esta entrega
+**API base:** `https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com`
+**Sitio:** [https://d32bc7tq7qvtgu.cloudfront.net](https://d32bc7tq7qvtgu.cloudfront.net)
 
-- No hay integración bancaria.
-- Los avisos solo aparecen dentro de la app; no existe envío automático de correo/SMS/push ni ejecución programada.
-- Aún no se implementan metas de ahorro independientes, consejos personalizados ni reportes mensuales enviados/exportables.
-- Los recursos de tarjetas están fuera de CloudFormation; la plantilla no reproduce todavía toda la infraestructura desplegada.
+## Datos y seguridad
 
-## Repositorio
+| Tabla | Clave de partición | Clave de ordenación | Modo |
+|---|---|---|---|
+| `TransactionsTable` | `userId` | `transactionId` | `PAY_PER_REQUEST` |
+| `BudgetsTable` | `userId` | `budgetKey` | `PAY_PER_REQUEST` |
+| `CardsTable` | `userId` | `cardId` | `PAY_PER_REQUEST` |
+| `GoalsTable` | `userId` | `goalId` | `PAY_PER_REQUEST` |
 
-```text
-frontend/                    React, autenticación y cliente HTTP
-backend/src/transactions/    Lambda de movimientos
-backend/src/budgets/         Lambda de presupuestos
-backend/src/cards/           Lambda de tarjetas (configurada manualmente)
-Proyecto_Infra/template.yaml CloudFormation para movimientos y presupuestos
-Proyecto_Infra/architecture.mmd Diagrama de arquitectura
-```
+- Cognito autentica a las personas usuarias; API Gateway valida sus JWT antes de ejecutar una ruta.
+- Cada Lambda usa un rol IAM separado y limitado a las tablas y logs que necesita.
+- Los grupos de logs de las funciones tienen retención configurada de siete días.
+- No se usan EC2 ni NAT Gateway.
+- Los identificadores públicos de Cognito y la URL de API pueden estar en la configuración del frontend; no incluyas claves IAM, contraseñas, tokens ni secretos.
 
-## Ejecutar y compilar el frontend
+## Verificación del despliegue
+
+- La pila terminó en `UPDATE_COMPLETE` con 43 recursos. Las cuatro Lambdas están `Active` y con última actualización `Successful`.
+- CloudFront está `Deployed`; `index.html` y los dos recursos compilados actuales existen en S3 y la última invalidación registrada está `Completed`.
+- API Gateway tiene diez rutas con `AuthorizationType: JWT` y el autorizador de Cognito configurado.
+- La función de tarjetas se probó con un evento de lectura controlado: `GET /cards` devolvió `200`, sin error de ejecución, y consultó el registro de prueba asociado al usuario sintético `lambda-read-test`.
+- El grupo de logs de tarjetas confirma la ejecución; CloudFormation conserva la función, tabla, rol, política, integración y rutas dentro de la pila.
+- Las pruebas de interfaz previas del equipo comprobaron el inicio de sesión, registro y consulta de movimientos, persistencia de tarjetas y visualización de avisos. Las capturas disponibles están en `Proyecto_Infra/evidence/capturas/`.
+- El inventario más reciente de AWS y las pruebas de humo de la Lambda de tarjetas están guardados en [`14-final-deployment-verification.json`](Proyecto_Infra/evidence/14-final-deployment-verification.json).
+
+El archivo `Proyecto_Infra/evidence/09-api-e2e-results.json` conserva una prueba anterior de transacciones firmada con IAM, de una etapa previa. La configuración actual usa JWT de Cognito. Las capturas `Proyecto_Infra/evidence/capturas/` documentan la primera pila y no reflejan los 43 recursos actuales; no las presentes como capturas del despliegue final.
+
+## Problemas técnicos detectados y resueltos
+
+1. **Los recursos de tarjetas estaban fuera de CloudFormation.** Se adoptaron mediante un change set de importación, preservando los recursos y los datos existentes; ahora forman parte de la pila.
+2. **La Lambda inline buscaba un módulo que no existía.** CloudWatch registró `Runtime.ImportModuleError` porque el handler seguía usando `lambda_function.handler`. Se alineó el handler con `index.handler`, el archivo generado para el código inline, y la lectura posterior devolvió `200`.
+3. **Una plantilla intermedia proponía cambios en la función de planeación.** Se mantuvieron las referencias originales de esa función; el change set final se limitó a tarjetas y no propuso reemplazos.
+
+## Ejecutar localmente
+
+Se requiere Node.js y npm.
 
 ```powershell
 Set-Location frontend
-npm install
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Para generar los archivos estáticos que se publican en S3:
+Completa `frontend/.env.local` con los valores de desarrollo del equipo y abre la URL local que muestre Vite. Esos valores identifican recursos públicos; nunca pongas credenciales IAM en el frontend.
+
+## Compilar y publicar el frontend
 
 ```powershell
+Set-Location frontend
+npm ci
 npm run lint
 npm run build
 ```
 
-La configuración local `frontend/.env.local` debe contener los identificadores públicos de Cognito y el endpoint API del equipo. No agregues credenciales IAM, contraseñas ni tokens a esa configuración o a Git.
+Carga **el contenido** de `frontend/dist/` al bucket S3 del sitio, sobrescribiendo los archivos previos. Después crea una invalidación `/*` en la distribución CloudFront para retirar archivos antiguos de caché.
 
-## Infraestructura como código
+## Mantener y actualizar infraestructura
 
-`Proyecto_Infra/template.yaml` define la pila de movimientos y presupuestos. El archivo fuente `backend/src/budgets/handler.py` se sincroniza con su bloque inline de CloudFormation mediante `node backend/scripts/sync-lambda-source.mjs --write`. Antes de actualizar la pila, crea y revisa un change set; detén el despliegue si propone reemplazar la tabla de movimientos, el User Pool o la API sin que sea intencional.
+Desde la raíz del repositorio, primero sincroniza los cuatro handlers con sus bloques `ZipFile` en CloudFormation:
 
-Los recursos de tarjetas se desplegaron desde la consola y están documentados en `backend/README.md`. Para reproducir toda la infraestructura en un entorno nuevo, primero hay que añadir/importar esos recursos en IaC y verificar sus permisos.
+```powershell
+node backend/scripts/sync-lambda-source.mjs --write
+node backend/scripts/sync-lambda-source.mjs
+```
 
-## Costos
+En AWS Console, abre **CloudFormation → Stacks → `Proyectoinfrainicial` → Update**; carga `Proyecto_Infra/template.yaml`, incluye `CAPABILITY_NAMED_IAM`, crea un change set y revisa sus cambios antes de ejecutarlo. Detén la actualización si propone reemplazar una tabla con datos, el User Pool o la API sin que sea intencional. La plantilla incluye políticas de retención para proteger los recursos de tarjetas.
 
-No se utiliza EC2 ni NAT Gateway. Lambda, DynamoDB bajo demanda, S3 y CloudFront cobran según uso y región; el costo gratuito depende de los límites y condiciones vigentes de la cuenta. Evita crear recursos adicionales solo para aumentar el número de servicios.
+## Costos y alcance
+
+La solución prioriza servicios bajo demanda: Lambda, DynamoDB `PAY_PER_REQUEST`, S3 y CloudFront. No se promete costo cero: los cargos dependen del uso, región, tráfico, almacenamiento y límites gratuitos vigentes. Revisa AWS Billing después de desplegar.
+
+Es una aplicación académica de demostración; utiliza datos de prueba y no almacena credenciales bancarias ni ejecuta pagos.
