@@ -3,6 +3,7 @@ import { AuthContext } from './authContext.js'
 import {
   confirmSignUp,
   getCurrentUser,
+  resendSignUpCode,
   signIn,
   signOut,
   signUp,
@@ -49,12 +50,24 @@ export function AuthProvider({ children }) {
     return confirmSignUp({ username: email, confirmationCode: code })
   }
 
+  async function resendRegistrationCode(email) {
+    return resendSignUpCode({ username: email })
+  }
+
   async function logout() {
     await signOut()
     setUser(null)
   }
 
-  const value = { user, loading, login, register, confirmRegistration, logout }
+  const value = {
+    user,
+    loading,
+    login,
+    register,
+    confirmRegistration,
+    resendRegistrationCode,
+    logout,
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

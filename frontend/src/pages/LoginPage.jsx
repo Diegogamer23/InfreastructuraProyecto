@@ -19,11 +19,19 @@ export default function LoginPage() {
       const result = await login(email.trim(), password)
       if (result.isSignedIn) {
         navigate(location.state?.from || '/app/dashboard', { replace: true })
+      } else if (result.nextStep?.signInStep === 'CONFIRM_SIGN_UP') {
+        navigate(`/confirm?email=${encodeURIComponent(email.trim())}`, { replace: true })
       } else {
-        setError('La cuenta requiere un paso adicional. Revisa el estado de verificación de Cognito.')
+        setError('La cuenta necesita completar otro paso de acceso. Vuelve a intentarlo o contacta al administrador.')
       }
     } catch (authError) {
-      setError(authError.message || 'No se pudo iniciar sesión.')
+      if (authError.name === 'UserNotConfirmedException') {
+        navigate(`/confirm?email=${encodeURIComponent(email.trim())}`, { replace: true })
+      } else if (authError.name === 'NotAuthorizedException') {
+        setError('El correo o la contraseña no coinciden. Si todavía no verificaste tu correo, confirma la cuenta primero.')
+      } else {
+        setError('No se pudo iniciar sesión. Revisa tus datos e intenta de nuevo.')
+      }
     } finally {
       setBusy(false)
     }
