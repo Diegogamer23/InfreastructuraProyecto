@@ -39,9 +39,15 @@ export default function ConfirmPage() {
   async function handleResend() {
     setError('')
     setNotice('')
+    const username = email.trim()
+    if (!username) {
+      setError('Escribe el correo que usaste para crear la cuenta.')
+      return
+    }
+
     setResending(true)
     try {
-      await resendRegistrationCode(email.trim())
+      await resendRegistrationCode(username)
       setCode('')
       setNotice('Solicitamos un nuevo código. Revisa tu correo y usa ese código, no uno anterior.')
     } catch (authError) {
@@ -72,7 +78,7 @@ export default function ConfirmPage() {
           <span>Código de confirmación</span>
           <input autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} placeholder="Código de 6 dígitos" required />
         </label>
-        <button className="button button-primary button-full" disabled={busy || success} type="submit">
+        <button className="button button-primary button-full" disabled={busy || resending || success} type="submit">
           {busy ? 'Confirmando…' : 'Confirmar cuenta'}
         </button>
       </form>
