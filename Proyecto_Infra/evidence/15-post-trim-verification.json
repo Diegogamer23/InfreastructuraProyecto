@@ -1,0 +1,98 @@
+{
+  "evidenceId": "15-post-trim-verification",
+  "checkedAtLocal": "2026-11-12",
+  "checkedAtUtc": "2026-11-12T05:28:34.133Z",
+  "region": "us-east-1",
+  "cloudFormation": {
+    "stackName": "Proyectoinfrainicial",
+    "status": "UPDATE_COMPLETE",
+    "managedResourceCount": 31,
+    "templatePath": "Proyecto_Infra/template.yaml",
+    "templateLineCount": 440
+  },
+  "api": {
+    "id": "3wsywaa6oh",
+    "protocol": "HTTP",
+    "endpoint": "https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com",
+    "jwtAuthorizer": "Proyectoinfrainicial-CognitoJwtAuthorizer",
+    "routeCount": 6,
+    "routes": [
+      "GET /transactions",
+      "POST /transactions",
+      "GET /budgets",
+      "POST /budgets",
+      "GET /cards",
+      "POST /cards"
+    ],
+    "allRoutesRequireJwt": true,
+    "corsAllowedOrigins": ["*"],
+    "unauthenticatedSmokeTest": "Each route returned HTTP 401 without a token, as expected."
+  },
+  "lambda": {
+    "runtime": "python3.12",
+    "memoryMb": 128,
+    "timeoutSeconds": 10,
+    "functionCount": 3,
+    "functions": [
+      "Proyectoinfrainicial-DemoFunction",
+      "Proyectoinfrainicial-BudgetsFunction",
+      "Proyectoinfrainicial-CardsFunction"
+    ],
+    "domainCrudChecks": "Direct Lambda checks with synthetic user data were completed; test records were removed. These checks do not claim a browser login test."
+  },
+  "dynamoDb": {
+    "activeTablesUsedByMvp": 3,
+    "billingMode": "PAY_PER_REQUEST",
+    "activeMvpTables": [
+      "Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141",
+      "Proyectoinfrainicial-BudgetsTable-7V3OBYTQDKGO",
+      "Proyectoinfrainicial-CardsTable"
+    ],
+    "retainedDetachedTable": {
+      "name": "Proyectoinfrainicial-GoalsTable-1W00JX2OLNLUI",
+      "status": "ACTIVE",
+      "usedByCurrentApplication": false,
+      "reason": "Retained when PlanningFunction and goal resources were removed from the stack."
+    }
+  },
+  "cognito": {
+    "poolId": "us-east-1_TBEFHGJH8",
+    "observedAccountState": "The AWS check found enabled, confirmed accounts. No identities or credentials are recorded.",
+    "passwordBasedBrowserLoginTested": false
+  },
+  "cloudFront": {
+    "distributionId": "EH4B047E53TRH",
+    "domain": "d32bc7tq7qvtgu.cloudfront.net",
+    "enabled": true,
+    "status": "Deployed",
+    "siteBaseUrl": "https://d32bc7tq7qvtgu.cloudfront.net"
+  },
+  "checks": {
+    "frontendLint": "passed",
+    "frontendProductionBuild": "passed",
+    "sitePagesHttp200": [
+      "/",
+      "/login",
+      "/register",
+      "/confirm",
+      "/app/dashboard",
+      "/app/movements",
+      "/app/budgets",
+      "/app/cards"
+    ],
+    "apiNoTokenExpectedStatus": 401,
+    "testCredential": "No real user password or token was used."
+  },
+  "removedFromCurrentStack": [
+    "PlanningFunction",
+    "goals routes",
+    "monthly report route",
+    "notifications route",
+    "related IAM, log group, integration, route, permission and output resources"
+  ],
+  "notes": [
+    "CloudFront and the S3 website bucket are not managed by the current template.yaml stack.",
+    "The API currently allows CORS from any origin; restrict it to the site domain before opening the app to external users.",
+    "This evidence records deployment and smoke checks. It is not a full authenticated browser acceptance test."
+  ]
+}

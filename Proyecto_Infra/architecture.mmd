@@ -1,42 +1,38 @@
 flowchart LR
     User[Persona usuaria]
-    CDN[Amazon CloudFront<br/>HTTPS y caché]
+    CDN[Amazon CloudFront<br/>Entrega el sitio por HTTPS]
     Site[Amazon S3<br/>Archivos estáticos React]
     Browser[React en navegador]
-    Cognito[Amazon Cognito<br/>User Pool y cliente web]
-    API[API Gateway HTTP API<br/>Autorizador JWT]
+    Cognito[Amazon Cognito<br/>Registro, confirmación y sesión]
+    API[API Gateway HTTP API<br/>Valida JWT]
 
-    User --> CDN --> Site
-    Site --> Browser
-    Browser -->|Registro, confirmación y sesión| Cognito
-    Browser -->|HTTPS con token JWT| API
-    API -->|Valida firma, emisor y audiencia| Cognito
+    User --> CDN --> Site --> Browser
+    Browser -->|Registro e inicio de sesión| Cognito
+    Browser -->|Llamada HTTPS con token JWT| API
+    API -->|Valida emisor, audiencia y firma| Cognito
 
-    API -->|GET/POST /transactions| Tx[Lambda DemoFunction<br/>Python 3.12]
-    API -->|GET/POST /budgets| Budget[Lambda BudgetsFunction<br/>Python 3.12]
-    API -->|GET/POST /cards| Cards[Lambda CardsFunction<br/>Python 3.12]
+    API -->|GET/POST /transactions| Tx[Lambda DemoFunction<br/>Movimientos]
+    API -->|GET/POST /budgets| Budget[Lambda BudgetsFunction<br/>Presupuestos]
+    API -->|GET/POST /cards| Cards[Lambda CardsFunction<br/>Tarjetas manuales]
 
-    Tx --> TxRole[Rol IAM limitado]
-    Budget --> BudgetRole[Rol IAM limitado]
-    Cards --> CardsRole[Rol IAM limitado]
-    TxRole --> TxTable[(DynamoDB TransactionsTable<br/>PK userId · SK transactionId<br/>PAY_PER_REQUEST)]
-    BudgetRole --> BudgetTable[(DynamoDB BudgetsTable<br/>PK userId · SK budgetKey<br/>PAY_PER_REQUEST)]
-    CardsRole --> CardsTable[(DynamoDB CardsTable<br/>PK userId · SK cardId<br/>PAY_PER_REQUEST)]
+    Tx --> TxTable[(DynamoDB TransactionsTable<br/>userId + transactionId<br/>PAY_PER_REQUEST)]
+    Budget --> BudgetTable[(DynamoDB BudgetsTable<br/>userId + budgetKey<br/>PAY_PER_REQUEST)]
+    Cards --> CardsTable[(DynamoDB CardsTable<br/>userId + cardId<br/>PAY_PER_REQUEST)]
 
-    Tx --> Logs[CloudWatch Logs<br/>Retención 7 días]
+    Tx --> Logs[Amazon CloudWatch Logs<br/>Retención 7 días]
     Budget --> Logs
     Cards --> Logs
 
-    Stack[CloudFormation<br/>Pila Proyectoinfrainicial]
+    Stack[AWS CloudFormation<br/>Pila Proyectoinfrainicial]
     Stack -. administra .-> API
+    Stack -. administra .-> Cognito
     Stack -. administra .-> Tx
     Stack -. administra .-> Budget
     Stack -. administra .-> Cards
     Stack -. administra .-> TxTable
     Stack -. administra .-> BudgetTable
     Stack -. administra .-> CardsTable
-    Stack -. administra .-> Cognito
     Stack -. administra .-> Logs
 
-    HostingNote[Bucket S3, distribución CloudFront y archivos publicados<br/>se administran por separado de esta plantilla]
+    HostingNote[El bucket del sitio y CloudFront se publican aparte.<br/>GoalsTable se conserva aparte y ya no se usa.]
     Site -.-> HostingNote

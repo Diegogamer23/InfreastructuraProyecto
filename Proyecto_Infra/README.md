@@ -1,73 +1,84 @@
-# Finanzas Claras — infraestructura
+# Finanzas Claras — infraestructura AWS
 
-**Último despliegue comprobado:** 11 de noviembre de 2026 · `us-east-1` · `Proyectoinfrainicial` (`UPDATE_COMPLETE`, 43 recursos). Ese despliegue aún tiene 4 Lambdas y 10 rutas; el recorte del repositorio requiere una actualización posterior en AWS.
+## Estado actual comprobado
 
-## Arquitectura desplegada
+Revisión del 12 de noviembre de 2026, región `us-east-1`:
 
-La aplicación React se publica en S3 y CloudFront. Cognito proporciona registro e inicio de sesión. API Gateway valida JWT de Cognito y enruta seis operaciones a tres Lambdas Python 3.12. Las funciones leen y escriben datos en tres tablas DynamoDB bajo demanda. CloudWatch recibe los logs. La plantilla reducida de CloudFormation administra la API, Cognito, tablas, funciones, roles, permisos e infraestructura de logs; el bucket y la distribución del sitio se publican por separado.
+| Parte | Estado actual |
+|---|---|
+| Pila CloudFormation `Proyectoinfrainicial` | `UPDATE_COMPLETE`, 31 recursos |
+| Plantilla `template.yaml` | 440 líneas |
+| Lambda | 3 funciones activas, Python 3.12, 128 MB, timeout de 10 segundos |
+| API Gateway HTTP API | 6 rutas, las 6 con JWT de Cognito |
+| DynamoDB usado por el MVP | 3 tablas, `PAY_PER_REQUEST` |
+| Amazon Cognito | User Pool y cliente web; las cuentas revisadas aparecen confirmadas y habilitadas |
+| CloudFront | Distribución habilitada, estado `Deployed` |
+| Alojamiento del frontend | S3 y CloudFront, operados fuera de esta pila |
 
-El código fuente del diagrama está en [`architecture.mmd`](architecture.mmd) y la plantilla ejecutable en [`template.yaml`](template.yaml).
+La cuenta AWS también conserva `GoalsTable` activa y separada de CloudFormation. La tabla no participa en la aplicación actual. El cambio usó `DeletionPolicy: Retain`, así que se preservaron recurso y datos.
 
-## Componentes y relaciones
+El inventario y las pruebas de acceso actuales están en [`evidence/15-post-trim-verification.json`](evidence/15-post-trim-verification.json). Las carpetas de evidencia anteriores conservan pruebas históricas, no deben presentarse como evidencia de la versión actual.
 
-| Servicio o recurso | Función y configuración | Relación |
+## Diagrama
+
+El diagrama editable en Mermaid está en [`architecture.mmd`](architecture.mmd). Resume el recorrido del navegador, autenticación, API, funciones, base de datos y logs.
+
+## Recursos y responsabilidades
+
+| Servicio | Uso en el proyecto |
+|---|---|
+| S3 y CloudFront | S3 guarda los archivos estáticos de React; CloudFront los entrega por internet. El alojamiento se publica por separado de `template.yaml`. |
+| Amazon Cognito | Administra el registro, confirmación de correo e inicio de sesión. Emite los tokens que usa el frontend. |
+| API Gateway HTTP API | Recibe las solicitudes HTTPS y valida el JWT antes de invocar una función. |
+| Lambda `DemoFunction` | Procesa `GET/POST /transactions` y usa `TransactionsTable`. |
+| Lambda `BudgetsFunction` | Procesa `GET/POST /budgets` y usa `BudgetsTable`. |
+| Lambda `CardsFunction` | Procesa `GET/POST /cards` y usa `CardsTable`. Los datos de tarjeta se capturan manualmente; no se guarda PAN/CVV. |
+| DynamoDB | Tres tablas bajo demanda. Cada función consulta registros bajo el identificador de usuario del token. |
+| IAM | Cada Lambda tiene un rol con acceso a la tabla y a los logs que necesita. |
+| CloudWatch Logs | Guarda la salida de cada función; la retención configurada es de siete días. |
+| CloudFormation | Mantiene declarados los recursos de la API, Cognito, las funciones, tablas, roles, permisos y logs. |
+
+## Rutas API activas
+
+Las seis rutas están protegidas por el autorizador JWT `Proyectoinfrainicial-CognitoJwtAuthorizer`.
+
+| Método y ruta | Lambda | Tabla |
 |---|---|---|
-| Amazon S3 + CloudFront | Alojan y entregan los archivos estáticos de React por HTTPS. | El navegador carga el sitio a través del dominio CloudFront. Su creación/publicación está separada de `template.yaml`. |
-| Amazon Cognito | User Pool y cliente web público para registro, confirmación, inicio y cierre de sesión. | API Gateway valida tokens JWT emitidos por el User Pool. |
-| API Gateway HTTP API | Seis rutas con `AuthorizationType: JWT`, autorizador `dor0bd`, integración Lambda proxy y etapa `$default`. | Envía la solicitud autenticada a la Lambda de cada dominio. |
-| Lambda `DemoFunction` | Python 3.12, 128 MB, timeout 10 s, handler `handler.handler`; ZIP desde `backend/src/transactions`. Procesa ingresos y gastos. | `GET/POST /transactions`; usa `TransactionsTable`. |
-| Lambda `BudgetsFunction` | Python 3.12, 128 MB, timeout 10 s, handler `handler.handler`; ZIP desde `backend/src/budgets`. Guarda y consulta presupuestos por mes/categoría. | `GET/POST /budgets`; usa `BudgetsTable`. |
-| Lambda `CardsFunction` | Python 3.12, 128 MB, timeout 10 s, handler `handler.handler`. Valida y guarda datos manuales de tarjetas. El código se empaqueta como ZIP desde `backend/src/cards`. | `GET/POST /cards`; usa `CardsTable`. Los recursos existentes se adoptaron en CloudFormation mediante un change set de importación, sin recrearlos. |
-| Amazon DynamoDB | Tres tablas `PAY_PER_REQUEST`, con `userId` como clave de partición y una clave de ordenación por tipo de dato. | Los roles IAM de las funciones limitan operaciones y tablas. El identificador de cada usuario procede del claim `sub` del JWT validado. |
-| AWS IAM | Un rol por función; permisos limitados a DynamoDB requerido y CloudWatch Logs. | Lambda asume su rol al ejecutar. Las rutas de tarjetas tienen permisos de invocación de Lambda separados por método. |
-| Amazon CloudWatch Logs | Un grupo por Lambda, retención de siete días. | Se usa para investigar fallos y confirmar invocaciones. |
-| AWS CloudFormation | La plantilla fuente queda en aproximadamente 485 líneas y 31 recursos después del recorte. El despliegue anterior de 43 recursos aún aparece en la evidencia guardada. | Fuente de verdad para recursos de aplicación declarados en `template.yaml`. |
+| `GET /transactions` | `DemoFunction` | `TransactionsTable` |
+| `POST /transactions` | `DemoFunction` | `TransactionsTable` |
+| `GET /budgets` | `BudgetsFunction` | `BudgetsTable` |
+| `POST /budgets` | `BudgetsFunction` | `BudgetsTable` |
+| `GET /cards` | `CardsFunction` | `CardsTable` |
+| `POST /cards` | `CardsFunction` | `CardsTable` |
 
-## Rutas API
+API base: `https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com`
 
-| Ruta | Lambda | Autorización |
-|---|---|---|
-| `GET /transactions`, `POST /transactions` | `DemoFunction` | JWT Cognito |
-| `GET /budgets`, `POST /budgets` | `BudgetsFunction` | JWT Cognito |
-| `GET /cards`, `POST /cards` | `CardsFunction` | JWT Cognito |
+## Recorte del alcance
 
-**API base:** `https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com`
+Se eliminó `PlanningFunction`, que reunía metas, reporte mensual y avisos. También se retiraron sus permisos, logs, integración, rutas y salidas relacionadas. La pila pasó de 43 a 31 recursos, de cuatro a tres Lambdas y de diez a seis rutas. El YAML pasó de aproximadamente 1,549 a 440 líneas.
 
-## Evidencias y comprobaciones
+Metas, reportes y avisos ya no forman parte de esta versión. La tabla `GoalsTable` permanece fuera de la pila por `DeletionPolicy: Retain`; la aplicación no la utiliza.
 
-- La evidencia del 11 de noviembre registra el despliegue anterior: `UPDATE_COMPLETE`, 43 recursos, 4 funciones, 4 tablas y 10 rutas. La versión reducida todavía no está desplegada ni verificada en AWS.
-- `CardsFunction` se invocó con una consulta GET controlada y devolvió `200` con una tarjeta del usuario sintético `lambda-read-test`; la invocación final no tuvo error.
-- La evidencia vigente de inventario, rutas, configuración, permisos de invocación y pruebas de humo es [`evidence/14-final-deployment-verification.json`](evidence/14-final-deployment-verification.json).
-- El grupo `/aws/lambda/Proyectoinfrainicial-CardsFunction` conserva sus logs por siete días.
-- El equipo había comprobado desde la aplicación el registro/inicio de sesión, la creación y consulta de movimientos, la persistencia de una tarjeta y los avisos en pantalla de la versión anterior.
-- Las capturas de `evidence/capturas/` son de la etapa inicial y no muestran los 43 recursos actuales; consérvalas solo como evidencia histórica. Los JSON de `evidence/09` a `evidence/13` también son históricos; en particular, las pruebas de `09` y `10` usaron IAM antes de que la API pasara a Cognito JWT.
+## Verificación funcional y límites
 
-## Problemas técnicos corregidos
+- `npm run lint` y `npm run build`: sin errores.
+- Páginas públicas y rutas internas del frontend: HTTP `200`.
+- Solicitudes sin token a las seis rutas: HTTP `401`, resultado esperado por el autorizador.
+- AWS confirma una pila completa, tres funciones, seis rutas protegidas, tres tablas activas del MVP y una distribución CloudFront desplegada.
+- Las funciones se ejercitaron con datos sintéticos en llamadas directas y los registros de prueba se limpiaron. Esto prueba la lógica de cada Lambda, pero no sustituye una prueba de inicio de sesión real desde el navegador.
+- Cognito muestra las cuentas existentes confirmadas y habilitadas. No se usó ni se expuso una contraseña real para esta verificación.
 
-1. **Tarjetas fuera de IaC:** tabla, función, rol, política, integración y rutas existían manualmente. Se importaron a la pila sin reemplazar recursos ni perder los datos; después se sincronizó el código con la plantilla.
-2. **Empaquetado de las Lambdas:** cada función usa el handler `handler.handler` dentro de un ZIP que AWS CLI genera desde la carpeta fuente. Antes de actualizar CloudFormation, se debe crear `template.packaged.yaml` con `aws cloudformation package`.
-3. **Reducción de alcance:** la versión nueva elimina el servicio de planeación y las rutas de metas, avisos y reporte mensual. La tabla `GoalsTable` tiene `DeletionPolicy: Retain`; al retirarla de la plantilla, CloudFormation la conserva y la separa de la pila.
+**Punto por mejorar:** CORS permite `*`. Antes de invitar a usuarios externos, restringirlo a `https://d32bc7tq7qvtgu.cloudfront.net` y volver a comprobar las llamadas del frontend.
 
-## Empaquetar handlers
+## Actualizar la infraestructura
 
-Las carpetas `backend/src/transactions`, `backend/src/budgets` y `backend/src/cards` contienen los handlers Python. `aws cloudformation package` crea y sube sus ZIPs al bucket de artefactos, y genera la plantilla que se debe cargar en CloudFormation. El bucket debe existir, ser privado y estar en `us-east-1`:
+Desde la raíz del repositorio, crea una plantilla empaquetada con un bucket privado de artefactos en `us-east-1`:
 
 ```powershell
 $bucketArtefactos = "NOMBRE_DE_BUCKET_PRIVADO_EN_US_EAST_1"
 aws cloudformation package --template-file Proyecto_Infra/template.yaml --s3-bucket $bucketArtefactos --s3-prefix finanzas-claras/lambda --output-template-file Proyecto_Infra/template.packaged.yaml --region us-east-1
 ```
 
-No uses el bucket público del sitio para guardar los paquetes de Lambda. El comando necesita AWS CLI autenticado y no despliega la pila.
+Carga `template.packaged.yaml` en CloudFormation, crea y revisa el change set y solo entonces ejecútalo. La pila usa recursos IAM con nombre, por lo que AWS puede pedir `CAPABILITY_NAMED_IAM`. La plantilla fuente no contiene los ZIP finales de Lambda.
 
-## Actualizar la pila en la consola
-
-1. Ejecuta el empaquetado anterior y confirma que se generó `Proyecto_Infra/template.packaged.yaml`.
-2. Abre **CloudFormation → Stacks → `Proyectoinfrainicial` → Update** y carga `template.packaged.yaml`.
-3. Crea un change set y revisa las rutas, funciones y recursos que AWS propone eliminar. Incluye `CAPABILITY_NAMED_IAM` cuando AWS lo solicite.
-4. Ejecuta el change set y espera `UPDATE_COMPLETE`; después verifica las seis rutas y las tres Lambdas.
-
-La tabla de metas tiene `DeletionPolicy: Retain`, así que AWS conservará sus datos al separarla de la pila. El bucket del sitio y CloudFront se actualizan por separado: compila `frontend`, carga `frontend/dist/` a S3 e invalida `/*` en CloudFront.
-
-## Alcance
-
-Los datos se ingresan manualmente; no hay conexión con instituciones bancarias ni almacenamiento de PAN/CVV. Las metas, reportes mensuales y avisos se retiraron de esta versión. Es una demostración académica; los costos dependen del uso y deben revisarse en AWS Billing.
+Para actualizar el sitio, compila `frontend`, carga el contenido de `frontend/dist/` al bucket S3 del sitio e invalida `/*` en CloudFront. Ese proceso es independiente del despliegue de CloudFormation del backend.
