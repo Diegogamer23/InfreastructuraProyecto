@@ -15,39 +15,28 @@ flowchart LR
     API -->|GET/POST /transactions| Tx[Lambda DemoFunction<br/>Python 3.12]
     API -->|GET/POST /budgets| Budget[Lambda BudgetsFunction<br/>Python 3.12]
     API -->|GET/POST /cards| Cards[Lambda CardsFunction<br/>Python 3.12]
-    API -->|GET/POST /goals<br/>GET /notifications<br/>GET /reports/monthly| Planning[Lambda PlanningFunction<br/>Python 3.12]
 
     Tx --> TxRole[Rol IAM limitado]
     Budget --> BudgetRole[Rol IAM limitado]
     Cards --> CardsRole[Rol IAM limitado]
-    Planning --> PlanningRole[Rol IAM limitado]
     TxRole --> TxTable[(DynamoDB TransactionsTable<br/>PK userId · SK transactionId<br/>PAY_PER_REQUEST)]
     BudgetRole --> BudgetTable[(DynamoDB BudgetsTable<br/>PK userId · SK budgetKey<br/>PAY_PER_REQUEST)]
     CardsRole --> CardsTable[(DynamoDB CardsTable<br/>PK userId · SK cardId<br/>PAY_PER_REQUEST)]
-    PlanningRole --> GoalsTable[(DynamoDB GoalsTable<br/>PK userId · SK goalId<br/>PAY_PER_REQUEST)]
-    PlanningRole --> TxTable
-    PlanningRole --> BudgetTable
-    PlanningRole --> CardsTable
 
     Tx --> Logs[CloudWatch Logs<br/>Retención 7 días]
     Budget --> Logs
     Cards --> Logs
-    Planning --> Logs
 
     Stack[CloudFormation<br/>Pila Proyectoinfrainicial]
     Stack -. administra .-> API
     Stack -. administra .-> Tx
     Stack -. administra .-> Budget
     Stack -. administra .-> Cards
-    Stack -. administra .-> Planning
     Stack -. administra .-> TxTable
     Stack -. administra .-> BudgetTable
     Stack -. administra .-> CardsTable
-    Stack -. administra .-> GoalsTable
     Stack -. administra .-> Cognito
     Stack -. administra .-> Logs
 
     HostingNote[Bucket S3, distribución CloudFront y archivos publicados<br/>se administran por separado de esta plantilla]
     Site -.-> HostingNote
-    Notice[Los avisos aparecen en la aplicación;<br/>no se envían correo, SMS ni push]
-    Planning -.-> Notice

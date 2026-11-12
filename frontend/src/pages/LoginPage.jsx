@@ -33,7 +33,7 @@ export default function LoginPage() {
     <section className="auth-card">
       <span className="eyebrow">BIENVENIDO DE VUELTA</span>
       <h1>Tu dinero, con más claridad.</h1>
-      <p className="auth-intro">Inicia sesión para revisar tus movimientos y cuidar tus metas.</p>
+      <p className="auth-intro">Inicia sesión para revisar tus movimientos y presupuestos.</p>
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       <form className="form-stack" onSubmit={handleSubmit}>
         <label className="field">

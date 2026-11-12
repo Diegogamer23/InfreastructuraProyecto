@@ -4,13 +4,13 @@ Interfaz React de la aplicación financiera. La autenticación usa Amazon Cognit
 
 ## Secciones
 
-- `src/pages/`: inicio de sesión, registro, confirmación, dashboard, movimientos, presupuestos, tarjetas, metas, avisos y reporte mensual.
+- `src/pages/`: inicio de sesión, registro, confirmación, dashboard, movimientos, presupuestos y tarjetas.
 - `src/auth/`: contexto de sesión, registro, confirmación, login y logout de Cognito.
 - `src/services/api.js`: cliente HTTP que adjunta el JWT a API Gateway.
 - `src/components/`: navegación, protección de rutas y pantallas de carga.
 - `src/hooks/`: estado y consulta de movimientos.
 
-La aplicación trabaja con datos capturados manualmente. No se conecta a bancos, procesa pagos ni solicita números de tarjeta o CVV. Los avisos se generan dentro de la app cuando se consulta la sección; no se envían por correo, SMS ni push.
+La aplicación trabaja con datos capturados manualmente. No se conecta a bancos, procesa pagos ni solicita números de tarjeta o CVV.
 
 ## Configurar el entorno
 

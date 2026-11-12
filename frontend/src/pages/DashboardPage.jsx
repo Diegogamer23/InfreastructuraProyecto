@@ -42,8 +42,6 @@ export default function DashboardPage() {
         </div>
         <div className="dashboard-actions">
           <Link className="button button-primary" to="/app/movements">＋ Registrar movimiento</Link>
-          <Link className="button button-secondary" to="/app/reports">Ver reporte mensual</Link>
-          <Link className="button button-secondary" to="/app/goals">Metas de ahorro</Link>
         </div>
       </section>
 

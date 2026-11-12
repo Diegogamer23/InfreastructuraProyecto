@@ -9,9 +9,8 @@ El frontend llama a API Gateway desde `frontend/src/services/api.js`. Amazon Cog
 | `src/transactions/handler.py` | `Proyectoinfrainicial-DemoFunction` | `GET/POST /transactions` | `TransactionsTable` |
 | `src/budgets/handler.py` | `Proyectoinfrainicial-BudgetsFunction` | `GET/POST /budgets` | `BudgetsTable` |
 | `src/cards/handler.py` | `Proyectoinfrainicial-CardsFunction` | `GET/POST /cards` | `CardsTable` |
-| `src/planning/handler.py` | `Proyectoinfrainicial-PlanningFunction` | `GET/POST /goals`, `GET /notifications`, `GET /reports/monthly` | `GoalsTable`, `TransactionsTable`, `BudgetsTable`, `CardsTable` |
 
-Las cuatro funciones usan Python 3.12. `CardsFunction` usa el handler `index.handler` porque su código se entrega en línea con `Code.ZipFile` de CloudFormation.
+Las tres funciones usan Python 3.12 y el handler `handler.handler`. Sus carpetas contienen el módulo `handler.py`; AWS CLI las empaqueta como ZIP antes de actualizar CloudFormation.
 
 ## Tablas
 
@@ -20,20 +19,19 @@ Las cuatro funciones usan Python 3.12. `CardsFunction` usa el handler `index.han
 | `Proyectoinfrainicial-TransactionsTable-1ODW83QPL6141` | `userId` | `transactionId` | `PAY_PER_REQUEST` |
 | `Proyectoinfrainicial-BudgetsTable-7V3OBYTQDKGO` | `userId` | `budgetKey` (`YYYY-MM#categoría`) | `PAY_PER_REQUEST` |
 | `Proyectoinfrainicial-CardsTable` | `userId` | `cardId` | `PAY_PER_REQUEST` |
-| `Proyectoinfrainicial-GoalsTable-1W00JX2OLNLUI` | `userId` | `goalId` | `PAY_PER_REQUEST` |
 
-El grupo de logs de cada función tiene retención de siete días. La pila CloudFormation `Proyectoinfrainicial` administra las funciones, tablas, roles, permisos, API Gateway y Cognito. Los recursos de tarjetas se importaron a la pila para que las actualizaciones futuras queden controladas por IaC.
+El grupo de logs de cada función tiene retención de siete días. La plantilla administra tres tablas, tres funciones, sus roles/permisos, API Gateway y Cognito. Al actualizar la pila para retirar metas, `GoalsTable` se conserva por `DeletionPolicy: Retain` y queda fuera de CloudFormation.
 
-## Sincronización de fuente y plantilla
+## Empaquetar las Lambdas
 
-Los archivos `src/*/handler.py` son las fuentes editables. Desde la raíz del repositorio:
+Los archivos `src/*/handler.py` son las fuentes editables. La propiedad `Code` de cada Lambda apunta a su carpeta local y requiere empaquetarse antes de usar CloudFormation. Desde la raíz del repositorio, con AWS CLI autenticado y un bucket privado existente en `us-east-1`:
 
 ```powershell
-node backend/scripts/sync-lambda-source.mjs --write
-node backend/scripts/sync-lambda-source.mjs
+$bucketArtefactos = "NOMBRE_DE_BUCKET_PRIVADO_EN_US_EAST_1"
+aws cloudformation package --template-file Proyecto_Infra/template.yaml --s3-bucket $bucketArtefactos --s3-prefix finanzas-claras/lambda --output-template-file Proyecto_Infra/template.packaged.yaml --region us-east-1
 ```
 
-`--write` actualiza los bloques inline de `Proyecto_Infra/template.yaml`; sin `--write`, el script verifica que fuente y plantilla sigan sincronizadas. Revisa el diff antes de cargar la plantilla en CloudFormation.
+El comando sube los paquetes ZIP y crea `Proyecto_Infra/template.packaged.yaml` con sus ubicaciones S3. Carga esa plantilla empaquetada en CloudFormation; no cargues la plantilla fuente sin empaquetar.
 
 ## Despliegue
 
@@ -41,7 +39,7 @@ Consulta el procedimiento completo en [`../Proyecto_Infra/README.md`](../Proyect
 
 ## Seguridad
 
-- Las diez rutas requieren JWT del User Pool Cognito.
+- Las seis rutas requieren JWT del User Pool Cognito.
 - El `userId` se obtiene de `requestContext.authorizer.jwt.claims.sub`, no del cuerpo de la solicitud.
 - Cada función tiene un rol IAM propio, con acciones DynamoDB limitadas a las tablas que utiliza y permisos para sus logs.
 - Las tarjetas solo guardan nombre, emisor, límite, saldo y días de corte/pago. No se guardan PAN ni CVV.

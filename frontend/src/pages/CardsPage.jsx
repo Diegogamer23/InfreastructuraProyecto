@@ -209,7 +209,7 @@ export default function CardsPage() {
             <button className="button button-primary button-full" disabled={saving} type="submit">{saving ? 'Guardando…' : editingCardId ? 'Guardar cambios' : 'Guardar tarjeta'}</button>
             {editingCardId && <button className="button button-secondary button-full" onClick={resetForm} type="button">Cancelar edición</button>}
           </form>
-          <div className="budget-form-note"><span>i</span><p>Son datos manuales para organizarte. La app no se conecta con bancos ni guarda números de tarjeta o CVV. Los recordatorios se muestran dentro de Avisos; no se envían correos, SMS ni notificaciones push.</p></div>
+          <div className="budget-form-note"><span>i</span><p>Son datos manuales para organizarte. La app no se conecta con bancos ni guarda números de tarjeta o CVV.</p></div>
         </article>
 
         <article className="panel cards-list-panel">
