@@ -48,6 +48,8 @@ export default function MovementsPage() {
   const [receiptError, setReceiptError] = useState(initialReceiptError)
   const [receiptMessage, setReceiptMessage] = useState('')
   const [receiptUrls, setReceiptUrls] = useState({})
+  const cameraInput = useRef(null)
+  const fileInput = useRef(null)
   const sharedReceiptHandled = useRef(false)
   const ordered = [...transactions].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''))
 
@@ -93,9 +95,9 @@ export default function MovementsPage() {
         ...current,
         type: 'expense',
         status: 'actual',
-        amount: foreignCurrency || lowConfidence ? current.amount : (draft.amount || current.amount),
+        amount: foreignCurrency || lowConfidence ? '' : (draft.amount || ''),
         category: 'otros',
-        description: draft.merchant || current.description || receiptFile.name,
+        description: draft.merchant || receiptFile.name,
         date: draft.date || current.date,
       }))
       setReceiptMessage(
@@ -192,17 +194,38 @@ export default function MovementsPage() {
           {formError && <div className="alert alert-error" role="alert">{formError}</div>}
           {notice && <div className="alert alert-success" role="status">{notice}</div>}
           <div className="receipt-capture">
-            <label className="field">
-              <span>Tomar foto o adjuntar ticket <small>(opcional)</small></span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                capture="environment"
-                onChange={handleReceiptChange}
-                disabled={receiptBusy || saving}
-                aria-describedby="receipt-help"
-              />
-            </label>
+            <div className="field">
+              <span>Agregar ticket <small>(opcional)</small></span>
+              <div className="receipt-actions">
+                <input
+                  ref={cameraInput}
+                  className="receipt-file-input"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  capture="environment"
+                  onChange={handleReceiptChange}
+                  disabled={receiptBusy || saving}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <input
+                  ref={fileInput}
+                  className="receipt-file-input"
+                  type="file"
+                  accept="image/jpeg,image/png,application/pdf"
+                  onChange={handleReceiptChange}
+                  disabled={receiptBusy || saving}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <button className="button receipt-action-button" type="button" onClick={() => cameraInput.current?.click()} disabled={receiptBusy || saving} aria-describedby="receipt-help" aria-label="Tomar una foto del ticket">
+                  Tomar foto
+                </button>
+                <button className="button receipt-action-button" type="button" onClick={() => fileInput.current?.click()} disabled={receiptBusy || saving} aria-describedby="receipt-help" aria-label="Elegir una foto o PDF del ticket">
+                  Elegir archivo
+                </button>
+              </div>
+            </div>
             <small id="receipt-help" className="receipt-help">Toma una foto, elige una imagen o PDF de una página (hasta 10 MB), o comparte el archivo desde otra app. Para compartirlo directamente, instala Finanzas Claras desde el navegador. El ticket se guarda en privado y se elimina después de 30 días.</small>
             {receiptBusy && <p className="receipt-status" role="status">Subiendo y leyendo el ticket…</p>}
             {receiptError && <div className="alert alert-error" role="alert">{receiptError}</div>}

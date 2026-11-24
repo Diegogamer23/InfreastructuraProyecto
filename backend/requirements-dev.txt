@@ -1,0 +1,4 @@
+# Dependencias locales para ejecutar las pruebas unitarias.
+# AWS Lambda proporciona boto3 en el runtime; no se empaqueta desde este archivo.
+boto3>=1.34,<2
+cfn-lint>=1,<2

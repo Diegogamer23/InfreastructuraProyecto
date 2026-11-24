@@ -42,8 +42,7 @@ Resources:
         Rules:
           - Id: DeleteReceiptImagesAfter30Days
             Status: Enabled
-            Filter:
-              Prefix: "receipts/"
+            Prefix: "receipts/"
             ExpirationInDays: 30
 
   TransactionsTable:

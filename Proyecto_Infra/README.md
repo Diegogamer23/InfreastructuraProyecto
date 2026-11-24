@@ -7,7 +7,7 @@
 | Parte | Estado actual |
 |---|---|
 | Pila CloudFormation `Proyectoinfrainicial` | `UPDATE_COMPLETE`, 31 recursos |
-| Plantilla fuente `template.yaml` | 543 líneas; incluye la extensión para tickets pendiente de despliegue |
+| Plantilla fuente `template.yaml` | 597 líneas; incluye la extensión para tickets pendiente de despliegue |
 | Lambda | 3 funciones activas, Python 3.12, 128 MB, timeout de 10 segundos |
 | API Gateway HTTP API | 6 rutas, las 6 con JWT de Cognito |
 | DynamoDB usado por el MVP | 3 tablas, `PAY_PER_REQUEST` |
@@ -38,6 +38,10 @@ El diagrama editable en Mermaid está en [`architecture.mmd`](architecture.mmd).
 | CloudWatch Logs | Guarda la salida de cada función; la retención configurada es de siete días. |
 | CloudFormation | Mantiene declarados los recursos de la API, Cognito, las funciones, tablas, roles, permisos y logs. |
 | Amazon Textract | En la extensión pendiente, analiza tickets de una página y propone comercio, total, fecha e impuestos; la persona revisa antes de guardar. |
+
+## Comprobación del sitio publicado
+
+Revisión HTTP del 24 de noviembre de 2026: la página carga, pero las rutas nuevas `POST /receipts/upload-url` y `POST /receipts/analyze` responden 404. Los archivos `manifest.webmanifest` y `share-target-worker.js` responden con el HTML de respaldo del sitio, no con sus archivos reales. Por lo tanto, la captura, lectura y opción de compartir ticket todavía no están disponibles en producción; falta desplegar CloudFormation y publicar el contenido de `frontend/dist/` en S3 e invalidar CloudFront.
 
 ## Rutas API activas
 

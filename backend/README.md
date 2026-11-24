@@ -47,3 +47,16 @@ Consulta el procedimiento completo en [`../Proyecto_Infra/README.md`](../Proyect
 - Nunca añadas access keys, claves secretas, contraseñas o JWT al frontend ni al repositorio.
 
 La ampliación y su estimación de costo están explicadas en [`../Proyecto_Infra/receipt-import.md`](../Proyecto_Infra/receipt-import.md).
+
+## Pruebas locales
+
+Desde la raíz del repositorio, instala las dependencias de desarrollo y ejecuta las pruebas del flujo de tickets:
+
+```powershell
+python -m pip install -r backend/requirements-dev.txt
+python -m unittest discover -s backend/tests -v
+python -m compileall -q backend/src/transactions backend/tests
+cfn-lint --non-zero-exit-code error Proyecto_Infra/template.yaml
+```
+
+`cfn-lint` puede mostrar advertencias por el empaquetado local de Lambdas y la política existente del grupo de logs; no son errores de validación de la plantilla. Las pruebas unitarias simulan S3, Textract, DynamoDB y la solicitud autenticada; no sustituyen una prueba real en AWS.
