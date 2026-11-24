@@ -39,6 +39,33 @@ export function createTransaction(transaction) {
   })
 }
 
+export function createReceiptUpload(file) {
+  return apiRequest('/receipts/upload-url', {
+    method: 'POST',
+    body: JSON.stringify({ contentType: file.type }),
+  })
+}
+
+export async function uploadReceiptFile(file, upload) {
+  const formData = new FormData()
+  Object.entries(upload.fields || {}).forEach(([key, value]) => formData.append(key, value))
+  formData.append('file', file)
+
+  const response = await fetch(upload.uploadUrl, { method: 'POST', body: formData })
+  if (!response.ok) throw new Error('No se pudo subir el ticket a S3.')
+}
+
+export function analyzeReceipt(receiptId) {
+  return apiRequest('/receipts/analyze', {
+    method: 'POST',
+    body: JSON.stringify({ receiptId }),
+  })
+}
+
+export function getReceiptUrl(receiptId) {
+  return apiRequest(`/receipts/${encodeURIComponent(receiptId)}`)
+}
+
 export async function listBudgets(month) {
   const query = month ? `?month=${encodeURIComponent(month)}` : ''
   const result = await apiRequest(`/budgets${query}`)

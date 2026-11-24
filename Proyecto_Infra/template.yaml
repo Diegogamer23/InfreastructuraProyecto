@@ -1,7 +1,51 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Finanzas Claras: API serverless autenticada con Cognito, Lambda y DynamoDB"
 
+Parameters:
+  WebAppOrigin:
+    Type: String
+    Default: "https://d32bc7tq7qvtgu.cloudfront.net"
+    Description: "Origen HTTPS autorizado para el sitio React"
+
 Resources:
+  ReceiptsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - POST
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - !Ref WebAppOrigin
+            ExposedHeaders:
+              - ETag
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteReceiptImagesAfter30Days
+            Status: Enabled
+            Filter:
+              Prefix: "receipts/"
+            ExpirationInDays: 30
+
   TransactionsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -142,6 +186,15 @@ Resources:
                 Resource: !GetAtt TransactionsTable.Arn
               - Effect: Allow
                 Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${ReceiptsBucket.Arn}/receipts/*"
+              - Effect: Allow
+                Action:
+                  - textract:AnalyzeExpense
+                Resource: "*"
+              - Effect: Allow
+                Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub "${DemoFunctionLogGroup.Arn}:*"
@@ -155,11 +208,12 @@ Resources:
       Runtime: python3.12
       Handler: handler.handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Timeout: 10
+      Timeout: 30
       MemorySize: 128
       Environment:
         Variables:
           TABLE_NAME: !Ref TransactionsTable
+          RECEIPTS_BUCKET_NAME: !Ref ReceiptsBucket
       Code: ../backend/src/transactions
 
   CardsFunction:
@@ -187,7 +241,7 @@ Resources:
       ProtocolType: HTTP
       CorsConfiguration:
         AllowOrigins:
-          - "*"
+          - !Ref WebAppOrigin
         AllowMethods:
           - GET
           - POST
@@ -205,6 +259,15 @@ Resources:
       IntegrationUri: !GetAtt DemoFunction.Arn
       PayloadFormatVersion: "2.0"
       TimeoutInMillis: 10000
+
+  ReceiptsIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TransactionsHttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt DemoFunction.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 29000
 
   CardsIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -250,6 +313,33 @@ Resources:
       AuthorizationType: JWT
       AuthorizerId: !Ref FinanceJwtAuthorizer
       Target: !Sub "integrations/${TransactionsIntegration}"
+
+  CreateReceiptUploadUrlRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TransactionsHttpApi
+      RouteKey: "POST /receipts/upload-url"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref FinanceJwtAuthorizer
+      Target: !Sub "integrations/${ReceiptsIntegration}"
+
+  AnalyzeReceiptRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TransactionsHttpApi
+      RouteKey: "POST /receipts/analyze"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref FinanceJwtAuthorizer
+      Target: !Sub "integrations/${ReceiptsIntegration}"
+
+  GetReceiptRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TransactionsHttpApi
+      RouteKey: "GET /receipts/{receiptId}"
+      AuthorizationType: JWT
+      AuthorizerId: !Ref FinanceJwtAuthorizer
+      Target: !Sub "integrations/${ReceiptsIntegration}"
 
   GetCardsRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -305,6 +395,9 @@ Resources:
     DependsOn:
       - CreateTransactionRoute
       - ListTransactionsRoute
+      - CreateReceiptUploadUrlRoute
+      - AnalyzeReceiptRoute
+      - GetReceiptRoute
       - GetBudgetsRoute
       - SaveBudgetRoute
     Properties:
@@ -319,6 +412,14 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${TransactionsHttpApi}/*/*/transactions"
+
+  ReceiptsApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DemoFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${TransactionsHttpApi}/*/*/receipts/*"
 
   CardsApiInvokePermissionGet:
     Type: AWS::Lambda::Permission
@@ -432,6 +533,10 @@ Resources:
         RefreshToken: days
 
 Outputs:
+  ReceiptsBucketName:
+    Description: "Bucket privado para tickets, con borrado automático a los 30 días"
+    Value: !Ref ReceiptsBucket
+
   TransactionsTableName:
     Description: "Nombre de la tabla DynamoDB existente en la pila"
     Value: !Ref TransactionsTable
@@ -471,6 +576,14 @@ Outputs:
   CardsUrl:
     Description: "Endpoint autenticado para consultar y guardar tarjetas"
     Value: !Sub "${TransactionsHttpApi.ApiEndpoint}/cards"
+
+  CreateReceiptUploadUrl:
+    Description: "Endpoint autenticado para solicitar una carga temporal de ticket"
+    Value: !Sub "${TransactionsHttpApi.ApiEndpoint}/receipts/upload-url"
+
+  AnalyzeReceiptUrl:
+    Description: "Endpoint autenticado para leer un ticket con Textract"
+    Value: !Sub "${TransactionsHttpApi.ApiEndpoint}/receipts/analyze"
 
   CognitoUserPoolId:
     Description: "Identificador del User Pool para configurar React"

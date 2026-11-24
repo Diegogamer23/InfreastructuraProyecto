@@ -8,6 +8,14 @@ from decimal import Decimal, InvalidOperation
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from receipt_service import (
+    ReceiptServiceError,
+    analyze_receipt,
+    create_upload,
+    ensure_receipt_exists,
+    get_receipt_url,
+    normalize_receipt_id,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -109,6 +117,15 @@ def create_transaction(payload, user_id):
     if card_id:
         item["cardId"] = card_id
 
+    receipt_id = str(payload.get("receiptId", "")).strip()
+    if receipt_id:
+        try:
+            receipt_id = normalize_receipt_id(receipt_id)
+            ensure_receipt_exists(user_id, receipt_id)
+        except ReceiptServiceError as error:
+            return response(error.status_code, {"message": str(error)})
+        item["receiptId"] = receipt_id
+
     table.put_item(Item=item)
     logger.info("Movimiento guardado: transactionId=%s", transaction_id)
     return response(
@@ -150,6 +167,18 @@ def handler(event, context):
         if not user_id:
             return response(401, {"message": "Se requiere iniciar sesion."})
 
+        route_key = str(event.get("routeKey", ""))
+        if route_key == "POST /receipts/upload-url":
+            return response(200, create_upload(user_id, parse_body(event)))
+        if route_key == "POST /receipts/analyze":
+            payload = parse_body(event)
+            receipt_id = normalize_receipt_id(str(payload.get("receiptId", "")))
+            return response(200, analyze_receipt(user_id, receipt_id))
+        if route_key == "GET /receipts/{receiptId}":
+            path_parameters = event.get("pathParameters") or {}
+            receipt_id = normalize_receipt_id(str(path_parameters.get("receiptId", "")))
+            return response(200, get_receipt_url(user_id, receipt_id))
+
         request_context = event.get("requestContext") or {}
         http_context = request_context.get("http") or {}
         method = str(http_context.get("method", "")).upper()
@@ -163,6 +192,8 @@ def handler(event, context):
             405,
             {"message": "Metodo no permitido. Usa GET o POST."},
         )
+    except ReceiptServiceError as error:
+        return response(error.status_code, {"message": str(error)})
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
         return response(400, {"message": str(error)})
     except Exception:

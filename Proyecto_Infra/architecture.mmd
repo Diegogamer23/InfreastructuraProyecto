@@ -19,6 +19,24 @@ flowchart LR
     Budget --> BudgetTable[(DynamoDB BudgetsTable<br/>userId + budgetKey<br/>PAY_PER_REQUEST)]
     Cards --> CardsTable[(DynamoDB CardsTable<br/>userId + cardId<br/>PAY_PER_REQUEST)]
 
+    subgraph ReceiptExtension[Extensión para tickets - código en repositorio, pendiente de despliegue]
+        Browser -->|Pide URL prefirmada con JWT| API
+        Tx -->|Crea URL de carga temporal| Browser
+        Browser -->|Carga directa con POST prefirmado| ReceiptsBucket[(S3 ReceiptsBucket privado<br/>cifrado y borrado a 30 días)]
+        Browser -->|POST /receipts/analyze con JWT| API
+        Tx -->|Lee ticket de la cuenta autenticada| ReceiptsBucket
+        Tx -->|AnalyzeExpense| Textract[Amazon Textract<br/>lee campos del ticket]
+        Textract -->|Borrador para revisar| Browser
+        Browser -->|Tras revisión: POST /transactions| API
+        Tx -->|Guarda movimiento + receiptId| TxTable
+        Browser -->|GET /receipts/id con JWT| API
+        Tx -->|URL temporal de lectura| Browser
+        IAM[Rol IAM de DemoFunction<br/>Permisos limitados por recurso]
+        Tx -. usa .-> IAM
+        IAM -. permite .-> ReceiptsBucket
+        IAM -. permite .-> Textract
+    end
+
     Tx --> Logs[Amazon CloudWatch Logs<br/>Retención 7 días]
     Budget --> Logs
     Cards --> Logs
@@ -26,9 +44,10 @@ flowchart LR
     Stack[AWS CloudFormation<br/>Pila Proyectoinfrainicial]
     Stack -. administra .-> API
     Stack -. administra .-> Cognito
-    Stack -. administra .-> Tx
+    Stack -. administra con cambios pendientes .-> Tx
     Stack -. administra .-> Budget
     Stack -. administra .-> Cards
+    Stack -. pendiente: administra .-> ReceiptsBucket
     Stack -. administra .-> TxTable
     Stack -. administra .-> BudgetTable
     Stack -. administra .-> CardsTable

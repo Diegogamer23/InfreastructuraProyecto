@@ -2,12 +2,12 @@
 
 ## Estado actual comprobado
 
-Revisión del 12 de noviembre de 2026, región `us-east-1`:
+Última evidencia del despliegue: 12 de noviembre de 2026, región `us-east-1`. La plantilla del repositorio incluye cambios posteriores que aún no se han desplegado:
 
 | Parte | Estado actual |
 |---|---|
 | Pila CloudFormation `Proyectoinfrainicial` | `UPDATE_COMPLETE`, 31 recursos |
-| Plantilla `template.yaml` | 440 líneas |
+| Plantilla fuente `template.yaml` | 543 líneas; incluye la extensión para tickets pendiente de despliegue |
 | Lambda | 3 funciones activas, Python 3.12, 128 MB, timeout de 10 segundos |
 | API Gateway HTTP API | 6 rutas, las 6 con JWT de Cognito |
 | DynamoDB usado por el MVP | 3 tablas, `PAY_PER_REQUEST` |
@@ -21,7 +21,7 @@ El inventario y las pruebas de acceso actuales están en [`evidence/15-post-trim
 
 ## Diagrama
 
-El diagrama editable en Mermaid está en [`architecture.mmd`](architecture.mmd). Resume el recorrido del navegador, autenticación, API, funciones, base de datos y logs.
+El diagrama editable en Mermaid está en [`architecture.mmd`](architecture.mmd). Resume el recorrido actual y marca con línea punteada la extensión de tickets que todavía no está desplegada.
 
 ## Recursos y responsabilidades
 
@@ -37,6 +37,7 @@ El diagrama editable en Mermaid está en [`architecture.mmd`](architecture.mmd).
 | IAM | Cada Lambda tiene un rol con acceso a la tabla y a los logs que necesita. |
 | CloudWatch Logs | Guarda la salida de cada función; la retención configurada es de siete días. |
 | CloudFormation | Mantiene declarados los recursos de la API, Cognito, las funciones, tablas, roles, permisos y logs. |
+| Amazon Textract | En la extensión pendiente, analiza tickets de una página y propone comercio, total, fecha e impuestos; la persona revisa antes de guardar. |
 
 ## Rutas API activas
 
@@ -50,6 +51,8 @@ Las seis rutas están protegidas por el autorizador JWT `Proyectoinfrainicial-Co
 | `POST /budgets` | `BudgetsFunction` | `BudgetsTable` |
 | `GET /cards` | `CardsFunction` | `CardsTable` |
 | `POST /cards` | `CardsFunction` | `CardsTable` |
+
+La plantilla fuente también declara tres rutas protegidas para tickets: `POST /receipts/upload-url`, `POST /receipts/analyze` y `GET /receipts/{receiptId}`. Aún no forman parte del despliegue comprobado arriba.
 
 API base: `https://3wsywaa6oh.execute-api.us-east-1.amazonaws.com`
 
@@ -68,7 +71,22 @@ Metas, reportes y avisos ya no forman parte de esta versión. La tabla `GoalsTab
 - Las funciones se ejercitaron con datos sintéticos en llamadas directas y los registros de prueba se limpiaron. Esto prueba la lógica de cada Lambda, pero no sustituye una prueba de inicio de sesión real desde el navegador.
 - Cognito muestra las cuentas existentes confirmadas y habilitadas. No se usó ni se expuso una contraseña real para esta verificación.
 
-**Punto por mejorar:** CORS permite `*`. Antes de invitar a usuarios externos, restringirlo a `https://d32bc7tq7qvtgu.cloudfront.net` y volver a comprobar las llamadas del frontend.
+**Punto por mejorar:** el API desplegado todavía permite CORS desde `*`. La plantilla fuente ya propone limitarlo al origen `https://d32bc7tq7qvtgu.cloudfront.net`; esa restricción queda pendiente de desplegar y comprobar.
+
+## Extensión propuesta: importar un ticket
+
+La persona puede tomar una foto, elegir una imagen/PDF o, si instaló la aplicación web en un navegador compatible, compartir el archivo desde el menú de compartir del teléfono. El navegador solicita a la API un formulario de carga temporal; Lambda lo firma y el navegador carga directamente el archivo al bucket privado de S3. Después, Lambda pide a Textract leer el ticket y devuelve un borrador. La persona verifica y corrige el monto, comercio y fecha; al guardar, el movimiento actual se almacena en `TransactionsTable` con el `receiptId`. No se agrega otra tabla de DynamoDB.
+
+- Formatos: JPG, PNG o PDF de una página; máximo 10 MB.
+- El bucket bloquea acceso público, cifra los archivos y los elimina a los 30 días.
+- La carga prefirmada y el enlace temporal para ver un ticket duran cinco minutos.
+- `userId` viene de la sesión Cognito validada; cada archivo se guarda bajo el identificador de esa persona.
+- La extracción es una sugerencia, no un registro automático: se debe revisar antes de guardar.
+- Las fotos y la opción de elegir archivos funcionan sin instalar la app. Para recibir un archivo directamente desde otra aplicación por el menú del teléfono, hay que instalar Finanzas Claras como aplicación web; depende del navegador y el sistema operativo.
+- El código, el bucket, los permisos y las rutas ya están descritos en el repositorio, pero la aplicación publicada y AWS no cambian hasta compilar el frontend y desplegar la plantilla.
+- La plantilla agrega seis recursos de CloudFormation para esta función; si la pila coincide con el inventario de 31 recursos de la evidencia y el change set no requiere otros cambios, quedaría en 37.
+
+La explicación de implementación, límites y costo está en [`receipt-import.md`](receipt-import.md).
 
 ## Actualizar la infraestructura
 

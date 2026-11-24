@@ -6,11 +6,11 @@ El frontend llama a API Gateway desde `frontend/src/services/api.js`. Amazon Cog
 
 | Carpeta fuente | Lambda desplegada | Rutas | Tabla(s) |
 |---|---|---|---|
-| `src/transactions/handler.py` | `Proyectoinfrainicial-DemoFunction` | `GET/POST /transactions` | `TransactionsTable` |
+| `src/transactions/handler.py` | `Proyectoinfrainicial-DemoFunction` | `GET/POST /transactions`; fuente pendiente de despliegue: `POST /receipts/upload-url`, `POST /receipts/analyze`, `GET /receipts/{receiptId}` | `TransactionsTable`, bucket de tickets y Textract para la extensión |
 | `src/budgets/handler.py` | `Proyectoinfrainicial-BudgetsFunction` | `GET/POST /budgets` | `BudgetsTable` |
 | `src/cards/handler.py` | `Proyectoinfrainicial-CardsFunction` | `GET/POST /cards` | `CardsTable` |
 
-Las tres funciones usan Python 3.12 y el handler `handler.handler`. Sus carpetas contienen el módulo `handler.py`; AWS CLI las empaqueta como ZIP antes de actualizar CloudFormation.
+Las tres funciones usan Python 3.12 y el handler `handler.handler`. Sus carpetas contienen el módulo `handler.py`; AWS CLI las empaqueta como ZIP antes de actualizar CloudFormation. La fuente de `DemoFunction` incluye `receipt_service.py` para tickets y propone aumentar su timeout a 30 segundos; el timeout desplegado de 10 segundos no cambia hasta aplicar el change set.
 
 ## Tablas
 
@@ -39,8 +39,11 @@ Consulta el procedimiento completo en [`../Proyecto_Infra/README.md`](../Proyect
 
 ## Seguridad
 
-- Las seis rutas requieren JWT del User Pool Cognito.
+- Las seis rutas actualmente desplegadas requieren JWT del User Pool Cognito. Las tres rutas nuevas de tickets también se declaran protegidas, pero quedan pendientes de despliegue.
 - El `userId` se obtiene de `requestContext.authorizer.jwt.claims.sub`, no del cuerpo de la solicitud.
-- Cada función tiene un rol IAM propio, con acciones DynamoDB limitadas a las tablas que utiliza y permisos para sus logs.
+- Cada función tiene un rol IAM propio. En la plantilla fuente pendiente, `DemoFunction` recibe permisos para movimientos, el prefijo de tickets en S3 y `textract:AnalyzeExpense`.
 - Las tarjetas solo guardan nombre, emisor, límite, saldo y días de corte/pago. No se guardan PAN ni CVV.
+- Los tickets se suben al bucket privado con una carga prefirmada que caduca en cinco minutos y limita el archivo a 10 MB. S3 elimina el contenido a los 30 días. La persona revisa el borrador antes de guardar el movimiento.
 - Nunca añadas access keys, claves secretas, contraseñas o JWT al frontend ni al repositorio.
+
+La ampliación y su estimación de costo están explicadas en [`../Proyecto_Infra/receipt-import.md`](../Proyecto_Infra/receipt-import.md).
