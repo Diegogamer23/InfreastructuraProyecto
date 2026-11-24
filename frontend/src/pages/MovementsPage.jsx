@@ -21,6 +21,17 @@ function normalizeReceiptFile(file) {
   return type ? (file.type === type ? file : new File([file], file.name || 'ticket', { type })) : null
 }
 
+const sharedReceiptErrors = {
+  size: 'El ticket compartido supera el límite de 10 MB.',
+  type: 'Comparte una foto JPG o PNG, o un PDF de una página.',
+  file: 'No se pudo recibir el archivo compartido. Inténtalo de nuevo.',
+}
+
+function initialReceiptError() {
+  const sharedTicket = new URLSearchParams(window.location.search).get('sharedTicket')
+  return sharedTicket && sharedTicket !== '1' ? (sharedReceiptErrors[sharedTicket] || sharedReceiptErrors.file) : ''
+}
+
 function amountOf(transaction) {
   const value = Number(transaction.amount)
   return Number.isFinite(value) ? value : 0
@@ -34,7 +45,7 @@ export default function MovementsPage() {
   const [saving, setSaving] = useState(false)
   const [receiptId, setReceiptId] = useState('')
   const [receiptBusy, setReceiptBusy] = useState(false)
-  const [receiptError, setReceiptError] = useState('')
+  const [receiptError, setReceiptError] = useState(initialReceiptError)
   const [receiptMessage, setReceiptMessage] = useState('')
   const [receiptUrls, setReceiptUrls] = useState({})
   const sharedReceiptHandled = useRef(false)
@@ -108,15 +119,7 @@ export default function MovementsPage() {
     sharedReceiptHandled.current = true
     url.searchParams.delete('sharedTicket')
     window.history.replaceState(window.history.state, '', url)
-    if (sharedTicket !== '1') {
-      const messages = {
-        size: 'El ticket compartido supera el límite de 10 MB.',
-        type: 'Comparte una foto JPG o PNG, o un PDF de una página.',
-        file: 'No se pudo recibir el archivo compartido. Inténtalo de nuevo.',
-      }
-      setReceiptError(messages[sharedTicket] || messages.file)
-      return
-    }
+    if (sharedTicket !== '1') return
 
     consumeSharedReceipt()
       .then((file) => {
