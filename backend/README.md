@@ -60,3 +60,5 @@ cfn-lint --non-zero-exit-code error Proyecto_Infra/template.yaml
 ```
 
 `cfn-lint` puede mostrar advertencias por el empaquetado local de Lambdas y la política existente del grupo de logs; no son errores de validación de la plantilla. Las pruebas unitarias simulan S3, Textract, DynamoDB y la solicitud autenticada; no sustituyen una prueba real en AWS.
+
+Durante `npm run dev`, Vite envía `/api` mediante un proxy al `VITE_API_BASE_URL` configurado localmente, evitando que el navegador bloquee las solicitudes por el origen `localhost`. El proxy no crea rutas en AWS; si falta una ruta, la API seguirá respondiendo 404.

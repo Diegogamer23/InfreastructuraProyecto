@@ -1,6 +1,8 @@
 import { fetchAuthSession } from 'aws-amplify/auth'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 
 export async function apiRequest(path, options = {}) {
   if (!API_BASE_URL) {
@@ -14,14 +16,22 @@ export async function apiRequest(path, options = {}) {
   const headers = { Authorization: `Bearer ${token}` }
   if (options.body) headers['Content-Type'] = 'application/json'
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body,
-  })
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body,
+    })
+  } catch {
+    throw new Error('No se pudo conectar con la API. Revisa la conexión, el despliegue y la configuración CORS.')
+  }
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
+    if (response.status === 404 && path.startsWith('/receipts') && payload.message === 'Not Found') {
+      throw new Error('El servicio de tickets aún no está desplegado en AWS.')
+    }
     throw new Error(payload.message || `La API respondió ${response.status}.`)
   }
   return payload
@@ -51,7 +61,12 @@ export async function uploadReceiptFile(file, upload) {
   Object.entries(upload.fields || {}).forEach(([key, value]) => formData.append(key, value))
   formData.append('file', file)
 
-  const response = await fetch(upload.uploadUrl, { method: 'POST', body: formData })
+  let response
+  try {
+    response = await fetch(upload.uploadUrl, { method: 'POST', body: formData })
+  } catch {
+    throw new Error('No se pudo conectar con S3. Revisa que el bucket y su configuración CORS estén desplegados.')
+  }
   if (!response.ok) throw new Error('No se pudo subir el ticket a S3.')
 }
 
